@@ -1,6 +1,7 @@
 import { BrowserWindow, shell } from 'electron';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import iconUrl from '../../renderer/assets/favicon.ico?asset';
 import { MAIN_COLORS } from '../theme';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -22,6 +23,7 @@ export const createMainWindow = (): BrowserWindow => {
     minWidth: 960,
     minHeight: 600,
     backgroundColor: MAIN_COLORS.bg,
+    icon: iconUrl,
     title: 'Lolzteam Launcher',
     autoHideMenuBar: true,
     show: false,

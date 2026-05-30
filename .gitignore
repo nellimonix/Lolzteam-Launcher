@@ -8,6 +8,9 @@ node_modules/
 **/.vite/
 **/release/
 **/build/
+# but keep electron-builder resources (app icons etc.)
+!apps/desktop/build/
+!apps/desktop/build/**
 
 # editor
 .idea/
@@ -30,3 +33,6 @@ Thumbs.db
 
 # Electron
 **/.electron-builder.cache/
+
+# TypeScript incremental build cache
+*.tsbuildinfo

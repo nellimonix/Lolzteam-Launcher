@@ -1,3 +1,6 @@
+<img width="1266" height="793" alt="image 6" src="https://github.com/user-attachments/assets/07ddd9b6-900e-425e-8105-9906693eac94" />
+
+
 # Lolzteam Launcher
 
 Десктопный лаунчер для покупателей на [lzt.market](https://lzt.market) - вход в купленные аккаунты в один клик.

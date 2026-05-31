@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, ArrowDownUp, RefreshCw, Search, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { AccountSummary, ServiceId } from '@shared-types';
 import { AccountCard } from './AccountCard';
 import { SkeletonCard } from './InventorySkeleton';
-import { useAccountsLoading } from '~/stores/accountsLoading';
+import {
+  mergeWithStream,
+  startAccountsStream,
+  useAccountsStream,
+} from '~/stores/accountsStream';
 import s from './InventoryView.module.scss';
 
 const CHUNK = 24;
@@ -116,70 +120,20 @@ const buildBuckets = (
 
 export const InventoryView = () => {
   const { t } = useTranslation();
-  const qc = useQueryClient();
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('purchased');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [limit, setLimit] = useState(CHUNK);
-  const [streaming, setStreaming] = useState(false);
-  const [loaded, setLoaded] = useState<ReadonlySet<SupportedService>>(new Set());
+  const streaming = useAccountsStream((st) => st.streaming);
+  const loaded = useAccountsStream((st) => st.loaded);
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const streamedRef = useRef(new Map<SupportedService, AccountSummary[]>());
-
-  const mergeWithStream = (base: AccountSummary[]): AccountSummary[] => {
-    const touched = streamedRef.current;
-    const kept = base.filter(
-      (it) => !(isSupportedService(it.category) && touched.has(it.category)),
-    );
-    return [...kept, ...[...touched.values()].flat()];
-  };
 
   const query = useQuery({
     queryKey: ['accounts'],
     queryFn: async () => mergeWithStream(await window.launcher.accounts.list()),
     staleTime: 60_000,
   });
-
-  const rebuildFromStream = () => {
-    qc.setQueryData<AccountSummary[]>(['accounts'], (prev) =>
-      mergeWithStream(prev ?? []),
-    );
-  };
-
-  const runStream = () => {
-    setStreaming(true);
-    setLoaded(new Set());
-    streamedRef.current = new Map();
-    void window.launcher.accounts.listStream().catch(() => setStreaming(false));
-  };
-
-  useEffect(() => {
-    const off = window.launcher.accounts.onCategory(
-      ({ serviceId, items, categoryDone, done }) => {
-        if (isSupportedService(serviceId) && items.length > 0) {
-          const acc = streamedRef.current.get(serviceId) ?? [];
-          acc.push(...items);
-          streamedRef.current.set(serviceId, acc);
-          rebuildFromStream();
-        }
-        if (categoryDone && isSupportedService(serviceId)) {
-          if (!streamedRef.current.has(serviceId)) {
-            streamedRef.current.set(serviceId, []);
-            rebuildFromStream();
-          }
-          setLoaded((prev) => new Set(prev).add(serviceId));
-        }
-        if (done) setStreaming(false);
-      },
-    );
-    if ((qc.getQueryData<AccountSummary[]>(['accounts']) ?? []).length > 0) {
-      setLoaded(new Set(SUPPORTED_SERVICES));
-    } else {
-      runStream();
-    }
-    return off;
-  }, []);
 
   const rawItems = query.data ?? [];
   const items = useMemo(
@@ -218,11 +172,6 @@ export const InventoryView = () => {
   const fullySettled = !streaming && !query.isLoading && !query.isFetching;
 
   useEffect(() => {
-    useAccountsLoading.getState().setLoading(!fullySettled);
-    return () => useAccountsLoading.getState().setLoading(false);
-  }, [fullySettled]);
-
-  useEffect(() => {
     if (!hasMore) return;
     const node = sentinelRef.current;
     if (!node) return;
@@ -240,7 +189,7 @@ export const InventoryView = () => {
 
   const refresh = () => {
     if (streaming) return;
-    runStream();
+    startAccountsStream();
   };
 
   // Hard error with nothing cached to fall back on.

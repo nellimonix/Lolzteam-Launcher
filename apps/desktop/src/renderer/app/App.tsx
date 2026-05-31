@@ -7,9 +7,15 @@ import { InventoryView } from '~/features/inventory/InventoryView';
 import { SettingsView } from '~/features/settings/SettingsView';
 import { LoginProgressModal } from '~/features/inventory/LoginProgressModal';
 import { useLoginSession } from '~/stores/loginSession';
+import { useAccountsStreamController } from '~/stores/accountsStream';
 import { useView } from '~/stores/view';
 import { useLocaleSync } from '~/i18n/useLocaleSync';
 import { Splash } from '~/widgets/Splash/Splash';
+
+const AccountsStreamController = () => {
+  useAccountsStreamController();
+  return null;
+};
 
 export const App = () => {
   useLocaleSync();
@@ -36,9 +42,6 @@ export const App = () => {
     const off = window.launcher.accounts.onLoginProgress((evt) => {
       const sess = useLoginSession.getState();
       if (evt.itemId !== sess.itemId) return;
-      // Once a session has finished (done or errored), ignore any late progress
-      // events — otherwise a straggler would roll the step back and make the
-      // already-finished modal look like it's running again.
       if (sess.step === 'done' || sess.error !== null) return;
       sess.setStep(evt.step, evt.detail);
     });
@@ -63,6 +66,7 @@ export const App = () => {
   } else {
     content = (
       <Shell session={current.session}>
+        <AccountsStreamController />
         {view === 'settings' ? <SettingsView /> : <InventoryView />}
         <LoginProgressModal />
       </Shell>

@@ -101,6 +101,42 @@
       }
     }
 
+    .socialBlock {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+
+      .socialItem {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #1F1F1F;
+        border-radius: 32px;
+        padding: 12px;
+        gap: 6px;
+        color: #f5f5f5;
+        text-decoration: none;
+        cursor: pointer;
+        user-select: none;
+        line-height: 1;
+        transition: all .1s ease-in-out;
+
+        svg {
+          width: 20px;
+          height: 20px;
+        }
+
+        &:hover {
+          background-color: #282828;
+        }
+
+        &:active {
+          opacity: .72;
+        }
+      }
+    }
+
     .toggleRow {
       @include button-reset;
       @include clickable;
@@ -180,6 +216,62 @@
   .switchKnob {
     transform: translateX(18px);
     background: #06170f;
+  }
+}
+
+.confirm {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+}
+
+.confirmBody {
+  margin: 0;
+  font-size: $fs-sm;
+  line-height: 1.5;
+  color: $color-text-muted;
+}
+
+.confirmActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: $space-2;
+}
+
+.confirmCancel,
+.confirmDanger {
+  @include button-reset;
+  @include clickable;
+  padding: $space-3 $space-4;
+  border-radius: $radius-md;
+  font-size: $fs-sm;
+  font-weight: 600;
+  transition: background $duration-fast $ease-out, opacity $duration-fast $ease-out;
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+
+  &:active {
+    opacity: .72;
+  }
+}
+
+.confirmCancel {
+  color: $color-text;
+  background: #ffffff12;
+
+  &:hover {
+    background: #ffffff20;
+  }
+}
+
+.confirmDanger {
+  color: #fff;
+  background: #c0392b;
+
+  &:hover {
+    background: #d04434;
   }
 }
 

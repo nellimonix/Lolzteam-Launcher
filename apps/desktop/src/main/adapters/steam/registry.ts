@@ -22,3 +22,20 @@ export const setAutoLoginUser = async (login: string): Promise<void> => {
   await writeValue('AutoLoginUser', 'REG_SZ', login);
   await writeValue('RememberPassword', 'REG_DWORD', '1');
 };
+
+const deleteValue = async (name: string): Promise<void> => {
+  try {
+    await execFileAsync(
+      'reg',
+      ['delete', STEAM_KEY, '/v', name, '/f'],
+      { windowsHide: true },
+    );
+  } catch {
+  }
+};
+
+export const clearAutoLoginUser = async (): Promise<void> => {
+  if (process.platform !== 'win32') return;
+  await deleteValue('AutoLoginUser');
+  await deleteValue('RememberPassword');
+};

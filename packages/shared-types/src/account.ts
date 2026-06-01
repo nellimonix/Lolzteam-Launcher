@@ -9,9 +9,13 @@ export interface SteamGame {
   hours: number;
 }
 
+export interface AccountTag {
+  id: number;
+  title: string;
+}
+
 export interface SteamInfo {
-  /** Server-side tag titles (e.g. "Валидный"). Drives the validity badge. */
-  tags: string[];
+  tags: AccountTag[];
   level: number | null;
   gameCount: number | null;
   /** Steam Desktop Authenticator / mafile guard present. */
@@ -48,8 +52,7 @@ export interface TelegramInfo {
   premiumExpires: number | null;
   /** True when the account is under a spam block. */
   spamBlocked: boolean;
-  /** Server-side tag titles (e.g. "Валидный"). */
-  tags: string[];
+  tags: AccountTag[];
   /** Origin phrase, e.g. "Авторег". */
   origin: string | null;
   channelsCount: number | null;
@@ -67,6 +70,7 @@ export interface AccountSummary {
   price: number;
   currency: string;
   imageUrl: string | null;
+  tags: AccountTag[];
   warrantyEndsAt: number | null;
   publishedAt: number | null;
   /** When the buyer purchased the item, unix seconds. Null if unknown. */

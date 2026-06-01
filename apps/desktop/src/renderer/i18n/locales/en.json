@@ -80,13 +80,25 @@
       "login": "Sign in",
       "busy": "Launching…",
       "loginTooltip": "Sign in to this account",
+      "loginInvalidTooltip": "Account is invalid — sign-in may fail",
       "unsupportedTooltip": "Service not supported yet",
+      "menuTooltip": "More",
+      "openOnMarket": "Open on market",
+      "checkValidity": "Check validity",
+      "checking": "Checking…",
+      "checkTitle": "Validity check",
+      "checkValidResult": "Account is valid",
+      "checkInvalidResult": "Account is invalid",
+      "checkErrorBody": "Couldn't check the account",
+      "checkClose": "Close",
       "loginFailedFallback": "Sign-in failed",
       "callError": "Call error",
       "warrantyWarnTitle": "This account has an active warranty",
       "warrantyWarnBody": "If sign-in needs a Steam Guard code, the launcher will request the mafile — that action cancels the account's active warranty ({{warranty}}). Continue signing in?",
       "warrantyWarnConfirm": "Sign in anyway",
       "warrantyWarnCancel": "Cancel",
+      "statusValid": "Valid",
+      "statusInvalid": "Invalid",
       "purchasedLabel": "Purchased",
       "priceLabel": "Price",
       "warrantyLabel": "Warranty",
@@ -98,6 +110,10 @@
       "steam": {
         "valid": "Valid",
         "banned": "Banned",
+        "banVac": "VAC ban",
+        "banCommunity": "Community ban",
+        "banTrade": "Trade ban",
+        "noBan": "No ban",
         "limited": "Limited",
         "mfa": "SDA",
         "hoursShort": "h",
@@ -148,7 +164,16 @@
       "title": "Steam",
       "description": "Steam account sign-in options.",
       "invisibleLabel": "Sign in invisible",
-      "invisibleHint": "Steam will launch with the \"Invisible\" status instead of \"Online\"."
+      "invisibleHint": "Steam will launch with the \"Invisible\" status instead of \"Online\".",
+      "clearLabel": "Clear Steam sessions",
+      "clearHint": "Remove all saved accounts from Steam",
+      "clearing": "Clearing…",
+      "cleared": "Sessions cleared",
+      "clearError": "Couldn't clear",
+      "confirmTitle": "Clear Steam sessions?",
+      "confirmBody": "Steam will be closed and every saved account and auto-login token removed from this computer. You'll need to sign in again. Your accounts on lzt.market are not affected.",
+      "confirmOk": "Clear",
+      "confirmCancel": "Cancel"
     },
     "cache": {
       "title": "Account cache",
@@ -168,6 +193,16 @@
       "exporting": "Saving…",
       "exported": "Log saved",
       "openFolder": "Open folder"
+    },
+    "update": {
+      "menuLabel": "Check for updates",
+      "menuHint": "Current version {{version}}",
+      "checking": "Checking…",
+      "available": "Version {{version}} is available",
+      "notAvailable": "You're on the latest version {{version}}",
+      "downloading": "Downloading update…",
+      "downloaded": "Version {{version}} is ready to install",
+      "error": "Couldn't check for updates"
     }
   }
 }

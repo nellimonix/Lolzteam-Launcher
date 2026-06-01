@@ -6,9 +6,12 @@ import type { AccountSummary } from '@shared-types';
 
 const FILE_NAME = 'accounts-cache.json';
 
+const CACHE_VERSION = 2;
+
 const cacheFile = () => join(app.getPath('userData'), FILE_NAME);
 
 interface CachePayload {
+  version: number;
   fetchedAt: number;
   items: AccountSummary[];
 }
@@ -24,8 +27,10 @@ class AccountsCacheStore {
       const raw = await fs.readFile(cacheFile(), 'utf8');
       const parsed = JSON.parse(raw) as Partial<CachePayload>;
       this.cached =
-        Array.isArray(parsed.items) && typeof parsed.fetchedAt === 'number'
-          ? { fetchedAt: parsed.fetchedAt, items: parsed.items }
+        parsed.version === CACHE_VERSION &&
+        Array.isArray(parsed.items) &&
+        typeof parsed.fetchedAt === 'number'
+          ? { version: CACHE_VERSION, fetchedAt: parsed.fetchedAt, items: parsed.items }
           : null;
     } catch (err: unknown) {
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
@@ -37,7 +42,7 @@ class AccountsCacheStore {
   }
 
   async save(items: AccountSummary[]): Promise<CachePayload> {
-    const payload: CachePayload = { fetchedAt: Date.now(), items };
+    const payload: CachePayload = { version: CACHE_VERSION, fetchedAt: Date.now(), items };
     try {
       await fs.writeFile(cacheFile(), JSON.stringify(payload), {
         encoding: 'utf8',

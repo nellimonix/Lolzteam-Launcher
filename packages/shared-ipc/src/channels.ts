@@ -2,6 +2,7 @@ import type { LoginProgressEvent } from '@lolzteam/adapter-contract';
 import type {
   AccountDetails,
   AccountSummary,
+  AccountTag,
   AuthStatus,
   AuthTokenPayload,
   LauncherSettings,
@@ -18,6 +19,10 @@ export interface AccountsCategoryEvent {
   categoryDone: boolean;
   done: boolean;
 }
+
+export type CheckAccountResult =
+  | { ok: true; valid: boolean; tags: AccountTag[]; reason?: string }
+  | { ok: false; message: string };
 
 export type UpdateStatus =
   | { state: 'checking' }
@@ -44,11 +49,14 @@ export const IPC_CHANNELS = {
   ACCOUNT_LOGIN: 'account:login',
   ACCOUNT_LOGIN_CANCEL: 'account:login-cancel',
   ACCOUNT_LOGIN_PROGRESS: 'account:login-progress',
+  ACCOUNT_CHECK: 'account:check',
 
   SETTINGS_GET: 'settings:get',
   SETTINGS_SET: 'settings:set',
   SETTINGS_CHANGED: 'settings:changed',
   SETTINGS_PICK_FILE: 'settings:pick-file',
+
+  STEAM_CLEAR_SESSION: 'steam:clear-session',
 
   APP_OPEN_EXTERNAL: 'app:open-external',
   APP_GET_VERSION: 'app:get-version',
@@ -75,9 +83,11 @@ export interface IpcRequestMap {
   [IPC_CHANNELS.ACCOUNTS_GET]: { itemId: number };
   [IPC_CHANNELS.ACCOUNT_LOGIN]: { itemId: number; method: 'native' | 'web' };
   [IPC_CHANNELS.ACCOUNT_LOGIN_CANCEL]: { itemId: number };
+  [IPC_CHANNELS.ACCOUNT_CHECK]: { itemId: number };
   [IPC_CHANNELS.SETTINGS_GET]: void;
   [IPC_CHANNELS.SETTINGS_SET]: Partial<LauncherSettings>;
   [IPC_CHANNELS.SETTINGS_PICK_FILE]: PickFileOptions;
+  [IPC_CHANNELS.STEAM_CLEAR_SESSION]: void;
   [IPC_CHANNELS.APP_OPEN_EXTERNAL]: { url: string };
   [IPC_CHANNELS.APP_GET_VERSION]: void;
   [IPC_CHANNELS.APP_OPEN_LOGS]: void;
@@ -99,9 +109,11 @@ export interface IpcResponseMap {
   [IPC_CHANNELS.ACCOUNTS_GET]: AccountDetails;
   [IPC_CHANNELS.ACCOUNT_LOGIN]: { ok: boolean; message?: string };
   [IPC_CHANNELS.ACCOUNT_LOGIN_CANCEL]: void;
+  [IPC_CHANNELS.ACCOUNT_CHECK]: CheckAccountResult;
   [IPC_CHANNELS.SETTINGS_GET]: SettingsResponse;
   [IPC_CHANNELS.SETTINGS_SET]: SettingsResponse;
   [IPC_CHANNELS.SETTINGS_PICK_FILE]: string | null;
+  [IPC_CHANNELS.STEAM_CLEAR_SESSION]: { ok: boolean; message?: string };
   [IPC_CHANNELS.APP_OPEN_EXTERNAL]: void;
   [IPC_CHANNELS.APP_GET_VERSION]: string;
   [IPC_CHANNELS.APP_OPEN_LOGS]: void;

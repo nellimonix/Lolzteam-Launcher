@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import {
   IPC_CHANNELS,
   type AccountsCategoryEvent,
+  type CheckAccountResult,
   type LoginProgress,
   type UpdateStatus,
 } from '@shared-ipc';
@@ -55,6 +56,8 @@ const api = {
       }),
     cancelLogin: (itemId: number) =>
       invoke<void>(IPC_CHANNELS.ACCOUNT_LOGIN_CANCEL, { itemId }),
+    check: (itemId: number) =>
+      invoke<CheckAccountResult>(IPC_CHANNELS.ACCOUNT_CHECK, { itemId }),
     onLoginProgress: (h: (p: LoginProgress) => void) =>
       on<LoginProgress>(IPC_CHANNELS.ACCOUNT_LOGIN_PROGRESS, h),
   },
@@ -66,6 +69,10 @@ const api = {
       invoke<string | null>(IPC_CHANNELS.SETTINGS_PICK_FILE, opts),
     onChanged: (h: (s: SettingsResponse) => void) =>
       on<SettingsResponse>(IPC_CHANNELS.SETTINGS_CHANGED, h),
+  },
+  steam: {
+    clearSession: () =>
+      invoke<{ ok: boolean; message?: string }>(IPC_CHANNELS.STEAM_CLEAR_SESSION),
   },
   app: {
     getVersion: () => invoke<string>(IPC_CHANNELS.APP_GET_VERSION),

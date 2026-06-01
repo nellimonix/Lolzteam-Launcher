@@ -10,6 +10,7 @@ import { registerAppIpc } from './ipc/app';
 import { registerAccountsIpc } from './ipc/accounts';
 import { registerLoginIpc } from './ipc/login';
 import { registerSettingsIpc } from './ipc/settings';
+import { registerSteamIpc } from './ipc/steam';
 import { registerUpdaterIpc } from './updater';
 import { LOLZ_CONFIG } from '@shared-ipc';
 
@@ -61,6 +62,7 @@ app.whenReady().then(async () => {
   registerAccountsIpc();
   registerLoginIpc();
   registerSettingsIpc();
+  registerSteamIpc();
   registerUpdaterIpc();
 
   consumeDeepLinks(process.argv);

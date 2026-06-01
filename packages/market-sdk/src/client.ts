@@ -1,6 +1,7 @@
 import ky, { type KyInstance } from 'ky';
 import { LOLZ_CONFIG } from '@lolzteam/shared-ipc';
 import type {
+  CheckAccountResponse,
   EmailCodeResponse,
   RawMarketItem,
   RawOrdersResponse,
@@ -58,6 +59,12 @@ export class MarketClient {
   /** `Managing.Steam.GetMafile` — Steam Guard mafile for the item. */
   async getSteamMafile(itemId: number): Promise<unknown> {
     return this.http.get(`${itemId}/mafile`).json<unknown>();
+  }
+
+  async checkAccount(itemId: number): Promise<CheckAccountResponse> {
+    return this.http
+      .post(`${itemId}/check-account`, { throwHttpErrors: false })
+      .json<CheckAccountResponse>();
   }
 
   /** `Managing.EmailCode` — fetch parsed email confirmation code for the item. */

@@ -37,3 +37,7 @@ export interface EmailCodeData {
 export type EmailCodeResponse =
   | { item?: unknown; codeData: EmailCodeData }
   | { error: string; errors?: string[] | string };
+
+export type CheckAccountResponse =
+  | { status: string; item: RawMarketItem }
+  | { errors: string[] };

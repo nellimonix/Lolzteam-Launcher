@@ -15,6 +15,7 @@ const baseDetails = (
   price: 0,
   currency: 'RUB',
   imageUrl: null,
+  tags: [],
   warrantyEndsAt: null,
   publishedAt: null,
   purchasedAt: null,

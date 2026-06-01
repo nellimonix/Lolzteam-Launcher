@@ -5,6 +5,7 @@ import { categoryNameToServiceId } from '@shared-types';
 import type {
   AccountDetails,
   AccountSummary,
+  AccountTag,
   AuthSession,
   ServiceId,
   SteamGame,
@@ -193,24 +194,52 @@ const toIsoCountry = (value: unknown): string | null => {
   return COUNTRY_NAME_TO_ISO.get(raw.toLowerCase()) ?? null;
 };
 
-const extractSteamTags = (item: Record<string, unknown>): string[] => {
+const extractTags = (item: Record<string, unknown>): AccountTag[] => {
   const tags = item.tags;
   if (!tags || typeof tags !== 'object') return [];
-  const out: string[] = [];
+  const out: AccountTag[] = [];
   for (const entry of Object.values(tags as Record<string, unknown>)) {
     if (entry && typeof entry === 'object') {
-      const title = asString((entry as { title?: unknown }).title);
-      if (title) out.push(title);
+      const id = asNumber((entry as { tag_id?: unknown }).tag_id);
+      const title = asString((entry as { title?: unknown }).title)?.trim();
+      if (id !== null && title) out.push({ id, title });
     }
   }
   return out;
 };
 
+interface SteamBans {
+  vacBanned: boolean;
+  communityBanned: boolean;
+  tradeBanned: boolean;
+}
+
+const extractSteamBans = (item: Record<string, unknown>): SteamBans => {
+  const bans = item.steam_bans;
+  const obj =
+    bans && typeof bans === 'object' ? (bans as Record<string, unknown>) : null;
+
+  const vacBanned =
+    asFlag(item.steam_vac) ||
+    (obj
+      ? asFlag(obj.VACBanned) || (asNumber(obj.NumberOfVACBans) ?? 0) > 0
+      : false);
+
+  const communityBanned =
+    asFlag(item.steam_community_ban) || (obj ? asFlag(obj.CommunityBanned) : false);
+
+  const tradeBanned =
+    asFlag(item.steam_trade_ban) ||
+    (obj ? asString(obj.EconomyBan) !== null && asString(obj.EconomyBan) !== 'none' : false);
+
+  return { vacBanned, communityBanned, tradeBanned };
+};
+
 const RESOLD_TAG_TITLES = new Set(['перепродан', 'resold']);
 
 const isResold = (item: RawItem): boolean =>
-  extractSteamTags(item as Record<string, unknown>).some((title) =>
-    RESOLD_TAG_TITLES.has(title.trim().toLowerCase()),
+  extractTags(item as Record<string, unknown>).some((tag) =>
+    RESOLD_TAG_TITLES.has(tag.title.trim().toLowerCase()),
   );
 
 // Top games by hours played. Icons resolve from parentGameId on the FE CDN.
@@ -248,16 +277,17 @@ const extractSteamInfo = (
   serviceId: ServiceId | null,
 ): SteamInfo | null => {
   if (serviceId !== 'steam') return null;
+  const bans = extractSteamBans(item);
   return {
-    tags: extractSteamTags(item),
+    tags: extractTags(item),
     level: asNumber(item.steam_level),
     gameCount: asNumber(item.steam_game_count),
     hasMfa: asFlag(item.steam_mfa),
     isLimited: asFlag(item.steam_is_limited),
     lastActivity: asNumber(item.steam_last_activity),
-    vacBanned: asFlag(item.steam_community_ban) || asString(item.steam_bans) !== null,
-    communityBanned: asFlag(item.steam_community_ban),
-    tradeBanned: asFlag(item.steam_trade_ban),
+    vacBanned: bans.vacBanned,
+    communityBanned: bans.communityBanned,
+    tradeBanned: bans.tradeBanned,
     balance: asString(item.steam_balance),
     origin: asString(item.itemOriginPhrase),
     country: toIsoCountry(item.steam_country),
@@ -280,7 +310,7 @@ const extractTelegramInfo = (
     premiumExpires: asNumber(item.telegram_premium_expires),
     // -1 means "unknown/not checked"; anything > 0 is an active block.
     spamBlocked: (asNumber(item.telegram_spam_block) ?? -1) > 0,
-    tags: extractSteamTags(item),
+    tags: extractTags(item),
     origin: asString(item.itemOriginPhrase),
     channelsCount: asNumber(item.telegram_channels_count),
     chatsCount: asNumber(item.telegram_chats_count),
@@ -333,6 +363,7 @@ const normalizeItem = (item: RawItem): AccountSummary => {
     price: item.price ?? 0,
     currency: item.price_currency ?? 'RUB',
     imageUrl: item.item_image_url ?? item.item_image ?? null,
+    tags: extractTags(item as Record<string, unknown>),
     warrantyEndsAt: item.warranty_end_at ?? null,
     publishedAt: item.published_date ?? null,
     purchasedAt: extractPurchasedAt(item as Record<string, unknown>),
@@ -419,6 +450,54 @@ export const fetchEmailCode = async (
     await new Promise((r) => setTimeout(r, 2000));
   }
   return null;
+};
+
+const VALID_TAG_ID = 1;
+const INVALID_TAG_ID = 2;
+
+export type CheckAccountResult =
+  | { ok: true; valid: boolean; tags: AccountTag[]; reason?: string }
+  | { ok: false; message: string };
+
+const tagsToResult = (tags: AccountTag[], reason?: string): CheckAccountResult => {
+  const valid = !tags.some((tag) => tag.id === INVALID_TAG_ID);
+  return { ok: true, valid, tags, reason };
+};
+
+const fetchAuthoritativeTags = async (itemId: number): Promise<AccountTag[] | null> => {
+  try {
+    const resp = await getClient().getItem(itemId);
+    if (resp?.item) return extractTags(resp.item as Record<string, unknown>);
+  } catch (err) {
+    log.warn(`[market] checkAccount getItem(${itemId}) failed`, err);
+  }
+  return null;
+};
+
+export const checkAccountValidity = async (
+  itemId: number,
+): Promise<CheckAccountResult> => {
+  const token = await loadToken();
+  if (!token) return { ok: false, message: 'not_authenticated' };
+  for (let attempt = 0; attempt < 100; attempt++) {
+    try {
+      const resp = await getClient().checkAccount(itemId);
+      const errors = 'errors' in resp && Array.isArray(resp.errors) ? resp.errors : [];
+      if (errors.includes('retry_request')) {
+        await new Promise((r) => setTimeout(r, 2000));
+        continue;
+      }
+      const reason = typeof errors[0] === 'string' ? errors[0] : undefined;
+      if (reason) log.warn(`[market] checkAccount(${itemId}) error: ${reason}`);
+      const tags = await fetchAuthoritativeTags(itemId);
+      if (tags) return tagsToResult(tags, reason);
+      return { ok: false, message: reason ?? 'check_failed' };
+    } catch (err) {
+      log.warn(`[market] checkAccount(${itemId}) threw`, err);
+      return { ok: false, message: err instanceof Error ? err.message : 'check_failed' };
+    }
+  }
+  return { ok: false, message: 'retry_request' };
 };
 
 export const fetchSteamMafile = async (itemId: number): Promise<string | null> => {

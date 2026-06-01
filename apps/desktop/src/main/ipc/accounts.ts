@@ -1,6 +1,7 @@
 import { ipcMain, type IpcMainInvokeEvent } from 'electron';
 import { IPC_CHANNELS } from '@shared-ipc';
 import {
+  checkAccountValidity,
   getAccountDetails,
   listAccountsByCategory,
   listPurchasedAccounts,
@@ -95,6 +96,9 @@ export const registerAccountsIpc = () => {
   });
   ipcMain.handle(IPC_CHANNELS.ACCOUNTS_GET, (_e, payload: { itemId: number }) =>
     getAccountDetails(payload.itemId),
+  );
+  ipcMain.handle(IPC_CHANNELS.ACCOUNT_CHECK, (_e, payload: { itemId: number }) =>
+    checkAccountValidity(payload.itemId),
   );
 
   onTokenChange(() => {

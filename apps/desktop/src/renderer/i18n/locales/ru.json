@@ -84,13 +84,25 @@
       "login": "Войти",
       "busy": "Запуск…",
       "loginTooltip": "Войти в аккаунт",
+      "loginInvalidTooltip": "Аккаунт невалиден — вход может не сработать",
       "unsupportedTooltip": "Сервис пока не поддерживается",
+      "menuTooltip": "Ещё",
+      "openOnMarket": "Открыть на маркете",
+      "checkValidity": "Проверить на валид",
+      "checking": "Проверка…",
+      "checkTitle": "Проверка на валид",
+      "checkValidResult": "Аккаунт валиден",
+      "checkInvalidResult": "Аккаунт невалиден",
+      "checkErrorBody": "Не удалось проверить аккаунт",
+      "checkClose": "Закрыть",
       "loginFailedFallback": "Не удалось войти",
       "callError": "Ошибка вызова",
       "warrantyWarnTitle": "На аккаунте активна гарантия",
       "warrantyWarnBody": "Если для входа потребуется код Steam Guard, лаунчер запросит mafile — это действие снимает активную гарантию на аккаунт ({{warranty}}). Продолжить вход?",
       "warrantyWarnConfirm": "Войти всё равно",
       "warrantyWarnCancel": "Отмена",
+      "statusValid": "Валид",
+      "statusInvalid": "Невалид",
       "purchasedLabel": "Куплен",
       "priceLabel": "Цена",
       "warrantyLabel": "Гарантия",
@@ -106,6 +118,10 @@
       "steam": {
         "valid": "Валидный",
         "banned": "Бан",
+        "banVac": "VAC бан",
+        "banCommunity": "CT бан",
+        "banTrade": "Trade бан",
+        "noBan": "Нет бана",
         "limited": "Лимит",
         "mfa": "SDA",
         "hoursShort": "ч",
@@ -160,7 +176,16 @@
       "title": "Steam",
       "description": "Параметры входа в Steam-аккаунты.",
       "invisibleLabel": "Входить в невидимке",
-      "invisibleHint": "При входе Steam будет запускаться со статусом «Невидимка» вместо «В сети»."
+      "invisibleHint": "При входе Steam будет запускаться со статусом «Невидимка» вместо «В сети».",
+      "clearLabel": "Очистить сессии Steam",
+      "clearHint": "Удалить все сохранённые аккаунты из Steam",
+      "clearing": "Очистка…",
+      "cleared": "Сессии очищены",
+      "clearError": "Не удалось очистить",
+      "confirmTitle": "Очистить сессии Steam?",
+      "confirmBody": "Steam будет закрыт, а все сохранённые аккаунты и токены автовхода удалены с этого компьютера. В аккаунты придётся войти заново. Данные самих аккаунтов на lzt.market не затрагиваются.",
+      "confirmOk": "Очистить",
+      "confirmCancel": "Отмена"
     },
     "cache": {
       "title": "Кеш аккаунтов",
@@ -180,6 +205,16 @@
       "exporting": "Сохранение…",
       "exported": "Лог сохранён",
       "openFolder": "Открыть папку"
+    },
+    "update": {
+      "menuLabel": "Проверить обновления",
+      "menuHint": "Текущая версия {{version}}",
+      "checking": "Проверка…",
+      "available": "Доступна версия {{version}}",
+      "notAvailable": "Установлена последняя версия {{version}}",
+      "downloading": "Загрузка обновления…",
+      "downloaded": "Версия {{version}} готова к установке",
+      "error": "Не удалось проверить обновления"
     }
   }
 }

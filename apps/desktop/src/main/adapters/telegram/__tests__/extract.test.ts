@@ -16,6 +16,7 @@ const baseDetails = (secrets: Record<string, unknown>): AccountDetails => ({
   price: 0,
   currency: 'RUB',
   imageUrl: null,
+  tags: [],
   warrantyEndsAt: null,
   publishedAt: null,
   purchasedAt: null,

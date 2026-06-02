@@ -4,9 +4,19 @@
 
 # Lolzteam Launcher
 
+[![Stars](https://img.shields.io/github/stars/iamextasy/Lolzteam-Launcher?style=flat&label=Stars&color=2BAD72&labelColor=1f1f1f)](https://github.com/iamextasy/Lolzteam-Launcher/stargazers)
+[![Forks](https://img.shields.io/github/forks/iamextasy/Lolzteam-Launcher?style=flat&label=Forks&color=2BAD72&labelColor=1f1f1f)](https://github.com/iamextasy/Lolzteam-Launcher/network/members)
+[![Release](https://img.shields.io/github/v/release/iamextasy/Lolzteam-Launcher?style=flat&label=Release&color=2BAD72&labelColor=1f1f1f)](https://github.com/iamextasy/Lolzteam-Launcher/releases)
+
 Десктопный лаунчер для покупателей на [lzt.market](https://lzt.market) - вход в купленные аккаунты в один клик.
 
-Поддерживает **Steam**, **Telegram** и вход по cookie через браузер.
+## Поддерживаемые сервисы
+
+![Steam](https://img.shields.io/badge/Steam-171A21?style=flat&logo=steam&logoColor=white)
+![Telegram](https://img.shields.io/badge/Telegram-26A5E4?style=flat&logo=telegram&logoColor=white)
+![Discord](https://img.shields.io/badge/Discord-5865F2?style=flat&logo=discord&logoColor=white)
+![TikTok](https://img.shields.io/badge/TikTok-000000?style=flat&logo=tiktok&logoColor=white)
+![Instagram](https://img.shields.io/badge/Instagram-E4405F?style=flat&logo=instagram&logoColor=white)
 
 ## Установка
 

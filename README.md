@@ -1,7 +1,6 @@
 <img width="2532" height="1786" alt="image" src="https://github.com/user-attachments/assets/9609c26e-d282-48a0-b0b7-3a4ed4401bb5" />
 
 
-
 # Lolzteam Launcher
 
 [![Stars](https://img.shields.io/github/stars/iamextasy/Lolzteam-Launcher?style=flat&label=Stars&color=2BAD72&labelColor=1f1f1f)](https://github.com/iamextasy/Lolzteam-Launcher/stargazers)
@@ -10,13 +9,7 @@
 
 Десктопный лаунчер для покупателей на [lzt.market](https://lzt.market) - вход в купленные аккаунты в один клик.
 
-## Поддерживаемые сервисы
-
-![Steam](https://img.shields.io/badge/Steam-171A21?style=flat&logo=steam&logoColor=white)
-![Telegram](https://img.shields.io/badge/Telegram-26A5E4?style=flat&logo=telegram&logoColor=white)
-![Discord](https://img.shields.io/badge/Discord-5865F2?style=flat&logo=discord&logoColor=white)
-![TikTok](https://img.shields.io/badge/TikTok-000000?style=flat&logo=tiktok&logoColor=white)
-![Instagram](https://img.shields.io/badge/Instagram-E4405F?style=flat&logo=instagram&logoColor=white)
+Поддерживает **Steam**, **Telegram**, **Instagram**, **Discord**.
 
 ## Установка
 

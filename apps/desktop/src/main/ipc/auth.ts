@@ -2,16 +2,19 @@ import { ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '@shared-ipc';
 import type { AuthStatus } from '@shared-types';
 import { clearToken, loadToken, onTokenChange } from '../auth/token-store';
-import { fetchProfile } from '../services/market';
+import { fetchProfileResult } from '../services/market';
 
 const buildStatus = async (): Promise<AuthStatus> => {
   const token = await loadToken();
   if (!token) return { authenticated: false, session: null };
-  const session = await fetchProfile();
-  return {
-    authenticated: Boolean(session),
-    session,
-  };
+  const result = await fetchProfileResult();
+  if (result.kind === 'offline') {
+    return { authenticated: true, session: null, offline: true };
+  }
+  if (result.kind === 'unauthorized') {
+    return { authenticated: false, session: null };
+  }
+  return { authenticated: true, session: result.session };
 };
 
 const broadcast = (channel: string, payload: unknown) => {

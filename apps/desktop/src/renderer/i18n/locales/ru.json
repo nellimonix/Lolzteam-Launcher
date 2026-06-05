@@ -45,6 +45,12 @@
     "busyBrowser": "Открываем браузер…",
     "hint": "Авторизация идёт через OAuth lzt.market. Токен хранится локально, зашифрованный системным хранилищем (DPAPI на Windows / Keychain на macOS)."
   },
+  "connection": {
+    "title": "Нет связи с API",
+    "subtitle": "Не удаётся подключиться к API. Проверьте интернет и нажмите «Повторить».",
+    "retry": "Повторить",
+    "retrying": "Подключаемся…"
+  },
   "loginSteps": {
     "fetchingCredentials": "Получаю данные аккаунта",
     "acquiringToken": "Получаю токен Steam",

@@ -1,7 +1,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { AuthStatus } from '@shared-types';
 import { LoginScreen } from '~/features/auth/LoginScreen';
+import { ConnectionScreen } from '~/features/auth/ConnectionScreen';
 import { Shell } from '~/widgets/Shell/Shell';
 import { InventoryView } from '~/features/inventory/InventoryView';
 import { SettingsView } from '~/features/settings/SettingsView';
@@ -60,11 +61,19 @@ export const App = () => {
   const current = live ?? status.data ?? null;
   const view = useView((st) => st.view);
 
+  const refetchStatus = useCallback(async () => {
+    setLive(null);
+    const res = await status.refetch();
+    return res.data;
+  }, []);
+
   const loading = status.isLoading && !current;
+
+  const offline = Boolean(current?.authenticated && (current.offline || !current.session));
 
   let content: React.ReactNode = null;
   if (loading) {
-    content = null;
+    content = splashDone ? <ConnectionScreen onRetry={refetchStatus} /> : null;
   } else if (!current?.authenticated) {
     content = (
       <>
@@ -72,6 +81,8 @@ export const App = () => {
         <LoginProgressModal />
       </>
     );
+  } else if (offline) {
+    content = <ConnectionScreen onRetry={refetchStatus} />;
   } else {
     content = (
       <Shell session={current.session}>

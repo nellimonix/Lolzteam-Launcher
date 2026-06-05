@@ -45,6 +45,12 @@
     "busyBrowser": "Opening browser…",
     "hint": "Authorization runs through lzt.market OAuth. The token is stored locally, encrypted by the system keystore (DPAPI on Windows / Keychain on macOS)."
   },
+  "connection": {
+    "title": "No connection to the API",
+    "subtitle": "Can't reach the API. Check your internet and press \"Retry\".",
+    "retry": "Retry",
+    "retrying": "Connecting…"
+  },
   "loginSteps": {
     "fetchingCredentials": "Fetching account data",
     "acquiringToken": "Acquiring Steam token",

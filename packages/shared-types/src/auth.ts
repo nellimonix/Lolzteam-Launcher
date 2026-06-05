@@ -19,4 +19,5 @@ export interface AuthSession {
 export interface AuthStatus {
   authenticated: boolean;
   session: AuthSession | null;
+  offline?: boolean;
 }

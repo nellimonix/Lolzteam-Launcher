@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.4.4',
+    date: '2026-06-05',
+    changes: {
+      ru: [
+        'Исправление работы приложения при неработающем API/интернете',
+      ],
+      en: [
+        'Fixed app behavior when the API/internet is unavailable',
+      ],
+    },
+  },
+  {
     version: '0.4.3',
     date: '2026-06-02',
     changes: {

@@ -74,25 +74,49 @@ const normalizeProfile = (raw: RawProfileResponse): AuthSession => ({
 });
 
 export const fetchProfile = async (): Promise<AuthSession | null> => {
+  const result = await fetchProfileResult();
+  return result.kind === 'ok' ? result.session : null;
+};
+
+export type ProfileResult =
+  | { kind: 'ok'; session: AuthSession }
+  | { kind: 'offline' }
+  | { kind: 'unauthorized' };
+
+const httpStatusOf = (err: unknown): number | null => {
+  if (err && typeof err === 'object' && 'response' in err) {
+    const res = (err as { response?: { status?: number } }).response;
+    if (res && typeof res.status === 'number') return res.status;
+  }
+  return null;
+};
+
+const isAuthRejection = (err: unknown): boolean => {
+  const status = httpStatusOf(err);
+  return status === 401 || status === 403;
+};
+
+export const fetchProfileResult = async (): Promise<ProfileResult> => {
   const token = await loadToken();
-  if (!token) return null;
+  if (!token) return { kind: 'unauthorized' };
   // Market `/me` returns rendered avatars + gradient username HTML + balance in
   // one call. Fall back to the forum `/users/me` shape if it ever lacks a user.
   try {
     const raw = await getClient().me();
-    if (raw?.user) return normalizeProfile(raw);
+    if (raw?.user) return { kind: 'ok', session: normalizeProfile(raw) };
     log.warn('[market] me() returned no user; falling back to forum profile');
   } catch (err) {
+    if (isAuthRejection(err)) return { kind: 'unauthorized' };
     log.warn('[market] me() failed; falling back to forum profile', err);
   }
   try {
     const raw = await getClient().meForum();
-    if (!raw?.user) return null;
-    return normalizeProfile(raw);
+    if (raw?.user) return { kind: 'ok', session: normalizeProfile(raw) };
   } catch (err) {
+    if (isAuthRejection(err)) return { kind: 'unauthorized' };
     log.warn('[market] fetchProfile fallback failed', err);
-    return null;
   }
+  return { kind: 'offline' };
 };
 
 const asNumber = (v: unknown): number | null => {

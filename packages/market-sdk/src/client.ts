@@ -1,11 +1,13 @@
-import ky, { type KyInstance } from 'ky';
 import { LOLZ_CONFIG } from '@lolzteam/shared-ipc';
+import ky, { type KyInstance } from 'ky';
 import type {
   CheckAccountResponse,
   EmailCodeResponse,
+  RawEditMeResponse,
   RawMarketItem,
   RawOrdersResponse,
   RawProfileResponse,
+  RawTagOpResponse,
 } from './types';
 
 export interface MarketClientOptions {
@@ -38,7 +40,9 @@ export class MarketClient {
   }
 
   /** `List.Orders` — accounts the user has purchased. */
-  async listOrders(params: { page?: number; categoryId?: number } = {}): Promise<RawOrdersResponse> {
+  async listOrders(
+    params: { page?: number; categoryId?: number } = {},
+  ): Promise<RawOrdersResponse> {
     const search = new URLSearchParams();
     if (params.page) search.set('page', String(params.page));
     if (params.categoryId) search.set('category_id', String(params.categoryId));
@@ -73,6 +77,27 @@ export class MarketClient {
     return this.http
       .get(`${itemId}/email-code`, { throwHttpErrors: false })
       .json<EmailCodeResponse>();
+  }
+
+  /** `Managing.Tag.Add` — attach one of the user's labels to the item. */
+  async addItemTag(itemId: number, tagId: number): Promise<RawTagOpResponse> {
+    return this.http
+      .post(`${itemId}/tag`, { json: { tag_id: tagId }, throwHttpErrors: false })
+      .json<RawTagOpResponse>();
+  }
+
+  /** `Managing.Tag.Delete` — detach a label from the item. */
+  async removeItemTag(itemId: number, tagId: number): Promise<RawTagOpResponse> {
+    return this.http
+      .delete(`${itemId}/tag`, { json: { tag_id: tagId }, throwHttpErrors: false })
+      .json<RawTagOpResponse>();
+  }
+
+  /** `EditMarketSettings` — change the account currency (PUT /me). */
+  async updateCurrency(currency: string): Promise<RawEditMeResponse> {
+    return this.http
+      .put('me', { json: { user: { currency } }, throwHttpErrors: false })
+      .json<RawEditMeResponse>();
   }
 
   /** Current authenticated user (market API — no avatar URL, only `avatar_date`). */

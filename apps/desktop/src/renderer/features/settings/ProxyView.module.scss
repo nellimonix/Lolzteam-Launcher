@@ -360,8 +360,10 @@
 
 .listHeader {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 16px 20px;
   background-color: #1F1F1F;
@@ -372,6 +374,69 @@
 .listCount {
   font-size: 15px;
   color: rgb(234, 234, 234);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.checkAllBtn {
+  @include button-reset;
+  @include clickable;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #06170f;
+  background: $color-accent;
+  transition: filter $duration-fast $ease-out, opacity $duration-fast $ease-out;
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+
+  &:disabled {
+    opacity: .55;
+    cursor: default;
+  }
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+}
+
+.deleteInvalidBtn {
+  @include button-reset;
+  @include clickable;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e0a106;
+  background: #e0a1061f;
+  transition: background $duration-fast $ease-out, opacity $duration-fast $ease-out;
+
+  &:hover:not(:disabled) {
+    background: #e0a10633;
+  }
+
+  &:disabled {
+    opacity: .55;
+    cursor: default;
+  }
+
+  &:focus-visible {
+    @include focus-ring;
+  }
 }
 
 .deleteAllBtn {
@@ -386,10 +451,15 @@
   font-weight: 600;
   color: #e06453;
   background: #c0392b1f;
-  transition: background $duration-fast $ease-out;
+  transition: background $duration-fast $ease-out, opacity $duration-fast $ease-out;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: #c0392b33;
+  }
+
+  &:disabled {
+    opacity: .55;
+    cursor: default;
   }
 
   &:focus-visible {

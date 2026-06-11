@@ -20,6 +20,7 @@ export const Splash = ({ onDone }: SplashProps) => {
     setLeaving(true);
   };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: run-once safety timer; `finish` is idempotent via finishedRef
   useEffect(() => {
     const timer = window.setTimeout(finish, MAX_DURATION);
     return () => window.clearTimeout(timer);

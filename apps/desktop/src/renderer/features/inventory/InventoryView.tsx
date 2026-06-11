@@ -1,18 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { AlertCircle, ArrowDownUp, Check, ListFilter, RefreshCw, Search, X } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 import type { AccountSummary, LauncherSettings, ServiceId } from '@shared-types';
-import { AccountCard } from './AccountCard';
-import { SkeletonCard } from './InventorySkeleton';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { AlertCircle, ArrowDownUp, Check, ListFilter, RefreshCw, Search, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { labelColors } from '~/lib/labelColor';
 import {
   isStreamService,
   mergeWithStream,
   startAccountsStream,
   useAccountsStream,
 } from '~/stores/accountsStream';
+import { useProfileLabels } from '~/stores/profileLabels';
 import { useSettings } from '~/stores/settings';
 import { Modal } from '~/widgets/Modal/Modal';
+import { AccountCard } from './AccountCard';
+import { SkeletonCard } from './InventorySkeleton';
 import s from './InventoryView.module.scss';
 
 const CHUNK = 24;
@@ -20,7 +22,13 @@ const CHUNK = 24;
 const SKELETON_INITIAL = 8;
 const SKELETON_TAIL = 4;
 
-const SUPPORTED_SERVICES = ['steam', 'telegram', 'tiktok', 'instagram', 'discord'] as const satisfies readonly ServiceId[];
+const SUPPORTED_SERVICES = [
+  'steam',
+  'telegram',
+  'tiktok',
+  'instagram',
+  'discord',
+] as const satisfies readonly ServiceId[];
 type SupportedService = (typeof SUPPORTED_SERVICES)[number];
 const isSupportedService = (id: ServiceId | null): id is SupportedService =>
   id !== null && (SUPPORTED_SERVICES as readonly string[]).includes(id);
@@ -78,12 +86,7 @@ const sortValue = (item: AccountSummary, key: SortKey): number | null => {
   }
 };
 
-const compareItems = (
-  a: AccountSummary,
-  b: AccountSummary,
-  key: SortKey,
-  dir: SortDir,
-): number => {
+const compareItems = (a: AccountSummary, b: AccountSummary, key: SortKey, dir: SortDir): number => {
   const va = sortValue(a, key);
   const vb = sortValue(b, key);
   if (va === null && vb === null) return 0;
@@ -129,7 +132,15 @@ const buildBuckets = (
 
 export const InventoryView = () => {
   const { t } = useTranslation();
+  const qc = useQueryClient();
+  const loadLabels = useProfileLabels((p) => p.load);
+  const labels = useProfileLabels((p) => p.labels);
+  // Load the label palette once so card chips can render in their colours.
+  useEffect(() => {
+    void loadLabels();
+  }, [loadLabels]);
   const [filter, setFilter] = useState<Filter>('all');
+  const [labelFilter, setLabelFilter] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
   const [limit, setLimit] = useState(CHUNK);
@@ -142,7 +153,8 @@ export const InventoryView = () => {
   const sortDir = settings?.inventorySortDir ?? 'desc';
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const filtersActive = hideInvalid || sortKey !== 'purchased' || sortDir !== 'desc';
+  const filtersActive =
+    hideInvalid || sortKey !== 'purchased' || sortDir !== 'desc' || labelFilter !== null;
 
   const persistSettings = async (patch: Partial<LauncherSettings>) => {
     const next = await window.launcher.settings.set(patch);
@@ -151,15 +163,21 @@ export const InventoryView = () => {
 
   const setSortKey = (key: SortKey) => void persistSettings({ inventorySortKey: key });
   const setSortDir = (dir: SortDir) => void persistSettings({ inventorySortDir: dir });
-  const toggleHideInvalid = () =>
-    void persistSettings({ inventoryHideInvalid: !hideInvalid });
+  const toggleHideInvalid = () => void persistSettings({ inventoryHideInvalid: !hideInvalid });
+  // A label may disappear from the palette (deleted on web) while still selected
+  // — clear the filter then so the list doesn't stay mysteriously empty.
+  useEffect(() => {
+    if (labelFilter !== null && !labels.some((l) => l.id === labelFilter)) setLabelFilter(null);
+  }, [labels, labelFilter]);
 
-  const resetFilters = () =>
+  const resetFilters = () => {
+    setLabelFilter(null);
     void persistSettings({
       inventoryHideInvalid: false,
       inventorySortKey: 'purchased',
       inventorySortDir: 'desc',
     });
+  };
 
   const query = useQuery({
     queryKey: ['accounts'],
@@ -168,10 +186,7 @@ export const InventoryView = () => {
   });
 
   const rawItems = query.data ?? [];
-  const items = useMemo(
-    () => rawItems.filter((it) => isSupportedService(it.category)),
-    [rawItems],
-  );
+  const items = useMemo(() => rawItems.filter((it) => isSupportedService(it.category)), [rawItems]);
   const buckets = useMemo(
     () => buildBuckets(items, t('inventory.filter.all'), loaded, streaming),
     [items, t, loaded, streaming],
@@ -183,27 +198,28 @@ export const InventoryView = () => {
       (it) =>
         (filter === 'all' || it.category === filter) &&
         (!hideInvalid || !isInvalidAccount(it)) &&
+        (labelFilter === null || it.tags.some((tg) => tg.id === labelFilter)) &&
         matchesQuery(it, trimmedSearch),
     );
     return [...filtered].sort((a, b) => compareItems(a, b, sortKey, sortDir));
-  }, [items, filter, hideInvalid, trimmedSearch, sortKey, sortDir]);
+  }, [items, filter, hideInvalid, labelFilter, trimmedSearch, sortKey, sortDir]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: deps are the filter inputs — reset paging whenever any of them changes
   useEffect(() => {
     setLimit(CHUNK);
     document.querySelector('[data-scroll-root]')?.scrollTo({ top: 0 });
-  }, [filter, hideInvalid, trimmedSearch, sortKey, sortDir]);
+  }, [filter, hideInvalid, labelFilter, trimmedSearch, sortKey, sortDir]);
 
   const shown = visible.slice(0, limit);
   const hasMore = limit < visible.length;
 
   const allDone = SUPPORTED_SERVICES.every((id) => loaded.has(id));
   const activeLoading =
-    filter === 'all'
-      ? streaming && !allDone
-      : isSupportedService(filter) && !loaded.has(filter);
+    filter === 'all' ? streaming && !allDone : isSupportedService(filter) && !loaded.has(filter);
 
   const fullySettled = !streaming && !query.isLoading && !query.isFetching;
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `visible.length` re-arms the observer when streamed items land while the sentinel is already in view
   useEffect(() => {
     if (!hasMore) return;
     const node = sentinelRef.current;
@@ -225,6 +241,9 @@ export const InventoryView = () => {
     // On a single-category tab, refresh only that category; on "all", refresh everything.
     const only = filter !== 'all' && isStreamService(filter) ? filter : undefined;
     startAccountsStream(only);
+    // The profile (balance/currency) may also have changed on the web — refetch
+    // it so the top bar reflects a currency switched outside the launcher.
+    void qc.invalidateQueries({ queryKey: ['auth-status'] });
   };
 
   // Hard error with nothing cached to fall back on.
@@ -247,9 +266,7 @@ export const InventoryView = () => {
         <button
           type="button"
           className={s.retry}
-          onClick={() =>
-            window.launcher.app.openExternal('https://lzt.market/orders')
-          }
+          onClick={() => window.launcher.app.openExternal('https://lzt.market/orders')}
         >
           {t('inventory.openMarket')}
         </button>
@@ -264,9 +281,7 @@ export const InventoryView = () => {
         <button
           type="button"
           className={s.retry}
-          onClick={() =>
-            window.launcher.app.openExternal('https://lzt.market/orders')
-          }
+          onClick={() => window.launcher.app.openExternal('https://lzt.market/orders')}
         >
           {t('inventory.openMarket')}
         </button>
@@ -319,12 +334,7 @@ export const InventoryView = () => {
         </div>
 
         <div className={s.controlsActions}>
-          <button
-            type="button"
-            className={s.refresh}
-            onClick={refresh}
-            disabled={streaming}
-          >
+          <button type="button" className={s.refresh} onClick={refresh} disabled={streaming}>
             <RefreshCw size={14} className={streaming ? s.spin : ''} />
             <span>{t('inventory.refresh')}</span>
           </button>
@@ -370,6 +380,39 @@ export const InventoryView = () => {
               </div>
             </div>
 
+            {labels.length > 0 && (
+              <div className={s.filterGroup}>
+                <span className={s.filterGroupLabel}>{t('inventory.filters.labelLabel')}</span>
+                <div className={s.labelChips}>
+                  {labels.map((label) => {
+                    const on = labelFilter === label.id;
+                    const c = labelColors(label.bc);
+                    return (
+                      <button
+                        key={label.id}
+                        type="button"
+                        className={`${s.labelChip} ${on ? s.labelChipOn : ''}`}
+                        style={
+                          on
+                            ? {
+                                backgroundColor: c.background,
+                                color: c.text,
+                                borderColor: c.background,
+                              }
+                            : undefined
+                        }
+                        onClick={() => setLabelFilter(on ? null : label.id)}
+                        aria-pressed={on}
+                      >
+                        {on && <Check size={13} />}
+                        <span>{label.title}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <button
               type="button"
               role="checkbox"
@@ -412,9 +455,7 @@ export const InventoryView = () => {
           ))}
           {!hasMore &&
             activeLoading &&
-            Array.from({ length: SKELETON_TAIL }, (_, i) => (
-              <SkeletonCard key={`tail-${i}`} />
-            ))}
+            Array.from({ length: SKELETON_TAIL }, (_, i) => <SkeletonCard key={`tail-${i}`} />)}
         </div>
       )}
 

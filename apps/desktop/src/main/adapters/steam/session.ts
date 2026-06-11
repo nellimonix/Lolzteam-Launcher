@@ -1,8 +1,4 @@
-import {
-  EAuthSessionGuardType,
-  EAuthTokenPlatformType,
-  LoginSession,
-} from 'steam-session';
+import { EAuthSessionGuardType, EAuthTokenPlatformType, LoginSession } from 'steam-session';
 import { generateSteamGuardCode } from './mafile';
 
 export type SessionError =
@@ -20,9 +16,7 @@ export interface SessionSuccess {
   accountName: string;
 }
 
-export type SessionResult =
-  | { ok: true; data: SessionSuccess }
-  | { ok: false; error: SessionError };
+export type SessionResult = { ok: true; data: SessionSuccess } | { ok: false; error: SessionError };
 
 interface GuardAction {
   type: EAuthSessionGuardType;
@@ -42,12 +36,43 @@ interface LoginParams {
   emailCode?: string;
 }
 
-export const acquireRefreshToken = async (
-  params: LoginParams,
-): Promise<SessionResult> => {
-  const session = new LoginSession(EAuthTokenPlatformType.SteamClient);
+export const acquireRefreshToken = async (params: LoginParams): Promise<SessionResult> =>
+  (await runCredentialLogin(params, EAuthTokenPlatformType.SteamClient)).result;
 
-  let start;
+export type WebSessionResult =
+  | { ok: true; data: SessionSuccess & { cookies: string[] } }
+  | { ok: false; error: SessionError };
+
+// Web login: authenticate with the WebBrowser platform (getWebCookies only
+// works for WebBrowser/MobileApp tokens) and exchange the session for cookies.
+// For WebBrowser, getWebCookies returns full Set-Cookie strings (with Domain/
+// Path/Secure attributes) valid across the Steam web hosts.
+export const acquireWebSession = async (params: LoginParams): Promise<WebSessionResult> => {
+  const { result, session } = await runCredentialLogin(params, EAuthTokenPlatformType.WebBrowser);
+  if (!result.ok) return result;
+  try {
+    const cookies = await session.getWebCookies();
+    return { ok: true, data: { ...result.data, cookies } };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      ok: false,
+      error: { kind: 'unknown', message: `Не удалось получить web-куки: ${msg}` },
+    };
+  }
+};
+
+const runCredentialLogin = async (
+  params: LoginParams,
+  platform: EAuthTokenPlatformType,
+): Promise<{ result: SessionResult; session: LoginSession }> => {
+  const session = new LoginSession(platform);
+  const failWith = (error: SessionError): { result: SessionResult; session: LoginSession } => ({
+    result: { ok: false, error },
+    session,
+  });
+
+  let start: Awaited<ReturnType<LoginSession['startWithCredentials']>>;
   try {
     start = await session.startWithCredentials({
       accountName: params.login,
@@ -56,9 +81,9 @@ export const acquireRefreshToken = async (
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (/Invalid|password|credential/i.test(msg)) {
-      return { ok: false, error: { kind: 'bad-credentials', message: msg } };
+      return failWith({ kind: 'bad-credentials', message: msg });
     }
-    return { ok: false, error: { kind: 'unknown', message: msg } };
+    return failWith({ kind: 'unknown', message: msg });
   }
 
   if (start.actionRequired) {
@@ -70,60 +95,57 @@ export const acquireRefreshToken = async (
       try {
         await session.submitSteamGuardCode(code);
       } catch (err) {
-        return {
-          ok: false,
-          error: {
-            kind: 'unknown',
-            message: 'Steam Guard TOTP отклонён: ' + (err instanceof Error ? err.message : String(err)),
-          },
-        };
+        return failWith({
+          kind: 'unknown',
+          message: `Steam Guard TOTP отклонён: ${err instanceof Error ? err.message : String(err)}`,
+        });
       }
     } else if (has(EAuthSessionGuardType.EmailCode)) {
       if (!params.emailCode) {
-        return { ok: false, error: { kind: 'needs-email-code' } };
+        return failWith({ kind: 'needs-email-code' });
       }
       try {
         await session.submitSteamGuardCode(params.emailCode);
       } catch (err) {
-        return {
-          ok: false,
-          error: {
-            kind: 'unknown',
-            message: 'Email-код отклонён: ' + (err instanceof Error ? err.message : String(err)),
-          },
-        };
+        return failWith({
+          kind: 'unknown',
+          message: `Email-код отклонён: ${err instanceof Error ? err.message : String(err)}`,
+        });
       }
     } else if (has(EAuthSessionGuardType.DeviceCode)) {
       // DeviceCode guard but no shared_secret on hand — caller can fetch the
       // mafile and retry with a TOTP.
-      return { ok: false, error: { kind: 'needs-totp' } };
+      return failWith({ kind: 'needs-totp' });
     } else if (has(EAuthSessionGuardType.DeviceConfirmation)) {
-      return { ok: false, error: { kind: 'needs-device-confirm' } };
+      return failWith({ kind: 'needs-device-confirm' });
     } else if (has(EAuthSessionGuardType.EmailConfirmation)) {
-      return { ok: false, error: { kind: 'needs-email-confirm' } };
+      return failWith({ kind: 'needs-email-confirm' });
     }
   }
 
   try {
     await waitAuth(session);
   } catch (err) {
-    return {
-      ok: false,
-      error: { kind: 'unknown', message: err instanceof Error ? err.message : String(err) },
-    };
+    return failWith({
+      kind: 'unknown',
+      message: err instanceof Error ? err.message : String(err),
+    });
   }
 
   if (!session.refreshToken || !session.steamID) {
-    return { ok: false, error: { kind: 'unknown', message: 'No refresh token returned' } };
+    return failWith({ kind: 'unknown', message: 'No refresh token returned' });
   }
 
   return {
-    ok: true,
-    data: {
-      refreshToken: session.refreshToken,
-      accessToken: session.accessToken || null,
-      steamId: session.steamID.toString(),
-      accountName: session.accountName ?? params.login,
+    result: {
+      ok: true,
+      data: {
+        refreshToken: session.refreshToken,
+        accessToken: session.accessToken || null,
+        steamId: session.steamID.toString(),
+        accountName: session.accountName ?? params.login,
+      },
     },
+    session,
   };
 };

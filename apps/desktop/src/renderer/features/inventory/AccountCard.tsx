@@ -1,20 +1,3 @@
-import { Fragment, memo, useEffect, useRef, useState, type ReactNode } from 'react';
-import {
-  AlertTriangle,
-  Ban,
-  CheckCircle2,
-  Clock,
-  ExternalLink,
-  KeyRound,
-  Lock,
-  LogIn,
-  Loader2,
-  ShieldCheck,
-  Star,
-  Tag,
-} from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { useQueryClient } from '@tanstack/react-query';
 import type {
   AccountSummary,
   AccountTag,
@@ -22,18 +5,41 @@ import type {
   ServiceId,
   SteamInfo,
   TelegramInfo,
+  UserLabel,
 } from '@shared-types';
-import * as CountryFlags from 'country-flag-icons/react/3x2';
-import { useLoginSession, type LoginService } from '~/stores/loginSession';
-import { useSettings } from '~/stores/settings';
-import { Modal } from '~/widgets/Modal/Modal';
-import { Tooltip } from '~/widgets/Tooltip/Tooltip';
-import { formatAgo } from '~/lib/time';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  AlertTriangle,
+  Ban,
+  Check,
+  CheckCircle2,
+  Clock,
+  ExternalLink,
+  Globe,
+  KeyRound,
+  Loader2,
+  Lock,
+  LogIn,
+  ShieldCheck,
+  Star,
+  Tag,
+  Tags,
+} from 'lucide-react';
+import { Fragment, type ReactNode, memo, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import discordLogo from '~/assets/category/discord.svg';
+import instagramLogo from '~/assets/category/instagram.svg';
 import steamLogo from '~/assets/category/steam.svg';
 import telegramLogo from '~/assets/category/telegram.svg';
 import tiktokLogo from '~/assets/category/tiktok.svg';
-import instagramLogo from '~/assets/category/instagram.svg';
-import discordLogo from '~/assets/category/discord.svg';
+import { labelColors } from '~/lib/labelColor';
+import { formatAgo } from '~/lib/time';
+import { type LoginService, useLoginSession } from '~/stores/loginSession';
+import { useProfileLabels } from '~/stores/profileLabels';
+import { useSettings } from '~/stores/settings';
+import { Flag } from '~/widgets/Flag/Flag';
+import { Modal } from '~/widgets/Modal/Modal';
+import { Tooltip } from '~/widgets/Tooltip/Tooltip';
 import s from './AccountCard.module.scss';
 
 interface AccountCardProps {
@@ -96,16 +102,7 @@ const formatPurchasedAgo = (
   return t('inventory.card.purchasedRecently');
 };
 
-// Windows fonts lack regional-indicator flag glyphs, so emoji flags render as
-// letter pairs. Inline SVG flags ship with the app — no external CDN.
-type FlagComponent = (props: { className?: string }) => ReactNode;
-
-const CountryFlag = ({ code }: { code: string }) => {
-  if (code.length !== 2) return null;
-  const Flag = (CountryFlags as Record<string, FlagComponent>)[code.toUpperCase()];
-  if (!Flag) return null;
-  return <Flag className={s.flag} />;
-};
+const CountryFlag = ({ code }: { code: string }) => <Flag code={code} className={s.flag} />;
 
 const REGION_NAMES_RU = new Intl.DisplayNames(['ru'], { type: 'region' });
 const REGION_NAMES_EN = new Intl.DisplayNames(['en'], { type: 'region' });
@@ -135,7 +132,9 @@ const formatPrice = (value: number, currency: string, locale: string) => {
 // Categories the launcher can actually sign into, mapped to the login pipeline
 // they use: native desktop clients (steam/telegram) vs. cookie-injection into a
 // built-in browser window (tiktok/instagram/...).
-const LOGIN_SERVICE_BY_CATEGORY: Partial<Record<NonNullable<AccountSummary['category']>, LoginService>> = {
+const LOGIN_SERVICE_BY_CATEGORY: Partial<
+  Record<NonNullable<AccountSummary['category']>, LoginService>
+> = {
   steam: 'steam',
   telegram: 'telegram',
   tiktok: 'browser',
@@ -144,7 +143,7 @@ const LOGIN_SERVICE_BY_CATEGORY: Partial<Record<NonNullable<AccountSummary['cate
 };
 
 const toLoginService = (category: AccountSummary['category']): LoginService | null =>
-  category ? LOGIN_SERVICE_BY_CATEGORY[category] ?? null : null;
+  category ? (LOGIN_SERVICE_BY_CATEGORY[category] ?? null) : null;
 
 const loginMethodFor = (service: LoginService): 'native' | 'web' =>
   service === 'browser' || service === 'discord' ? 'web' : 'native';
@@ -311,6 +310,9 @@ const AccountCardImpl = ({ item }: AccountCardProps) => {
   const canLogin = service !== null;
   const categoryLogo = item.category ? CATEGORY_LOGOS[item.category] : undefined;
 
+  const colorForTag = (tag: AccountTag) =>
+    labelColors(tag.bc ?? labels.find((l) => l.id === tag.id)?.bc);
+
   const tg = item.telegram;
   const country = tg?.country ?? item.steam?.country ?? null;
   const aboutParts: ReactNode[] = [];
@@ -337,7 +339,9 @@ const AccountCardImpl = ({ item }: AccountCardProps) => {
   const [warnOpen, setWarnOpen] = useState(false);
   const [proxyOpen, setProxyOpen] = useState(false);
   const [proxyChecking, setProxyChecking] = useState(false);
-  const [proxyFailed, setProxyFailed] = useState<{ entry: ProxyEntry; message: string } | null>(null);
+  const [proxyFailed, setProxyFailed] = useState<{ entry: ProxyEntry; message: string } | null>(
+    null,
+  );
   const proxyEnabled = useSettings((s) => s.settings?.proxyEnabled ?? false);
   const proxies = useSettings((s) => s.settings?.proxies ?? EMPTY_PROXIES);
   const proxyServices = useSettings((s) => s.settings?.proxyServices ?? EMPTY_SERVICES);
@@ -351,8 +355,13 @@ const AccountCardImpl = ({ item }: AccountCardProps) => {
   const [checking, setChecking] = useState(false);
   const [checkResult, setCheckResult] = useState<{ valid: boolean; reason?: string } | null>(null);
   const [checkError, setCheckError] = useState<string | null>(null);
+  const [labelsOpen, setLabelsOpen] = useState(false);
+  const [togglingTag, setTogglingTag] = useState<Set<number>>(new Set());
+  const labels = useProfileLabels((p) => p.labels);
+  const labelsLoading = useProfileLabels((p) => p.loading);
   const menuRef = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
+  const pendingMethodRef = useRef<'native' | 'web'>('native');
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -377,10 +386,13 @@ const AccountCardImpl = ({ item }: AccountCardProps) => {
     void window.launcher.app.openExternal(`https://lzt.market/${item.itemId}/`);
   };
 
-  const applyTags = (tags: AccountTag[]) => {
+  const applyTags = (tags: AccountTag[]) => updateItemTags(() => tags);
+
+  const updateItemTags = (transform: (tags: AccountTag[]) => AccountTag[]) => {
     qc.setQueryData<AccountSummary[]>(['accounts'], (prev) =>
       prev?.map((it) => {
         if (it.itemId !== item.itemId) return it;
+        const tags = transform(it.tags ?? []);
         const next = { ...it, tags };
         if (it.steam) next.steam = { ...it.steam, tags };
         if (it.telegram) next.telegram = { ...it.telegram, tags };
@@ -390,6 +402,38 @@ const AccountCardImpl = ({ item }: AccountCardProps) => {
   };
 
   const pendingTagsRef = useRef<AccountTag[] | null>(null);
+
+  const openLabels = () => {
+    setMenuOpen(false);
+    setLabelsOpen(true);
+    void useProfileLabels.getState().load();
+  };
+
+  const toggleLabel = async (label: UserLabel) => {
+    if (togglingTag.has(label.id)) return;
+    const attached = (item.tags ?? []).some((tg) => tg.id === label.id);
+    setTogglingTag((prev) => new Set(prev).add(label.id));
+    try {
+      const res = attached
+        ? await window.launcher.accounts.removeTag(item.itemId, label.id)
+        : await window.launcher.accounts.addTag(item.itemId, label.id);
+      if (res.ok) {
+        updateItemTags((tags) =>
+          attached
+            ? tags.filter((tg) => tg.id !== label.id)
+            : tags.some((tg) => tg.id === label.id)
+              ? tags
+              : [...tags, { id: label.id, title: label.title, bc: label.bc }],
+        );
+      }
+    } finally {
+      setTogglingTag((prev) => {
+        const next = new Set(prev);
+        next.delete(label.id);
+        return next;
+      });
+    }
+  };
 
   const runCheck = async () => {
     setMenuOpen(false);
@@ -428,11 +472,11 @@ const AccountCardImpl = ({ item }: AccountCardProps) => {
   ) => {
     if (!service) return;
     const sess = useLoginSession.getState();
-    sess.start(item.itemId, item.title, service);
+    sess.start(item.itemId, item.title, service, pendingMethodRef.current);
     try {
       const res = await window.launcher.accounts.login(
         item.itemId,
-        loginMethodFor(service),
+        pendingMethodRef.current,
         proxyId,
         proxyTest,
       );
@@ -468,15 +512,29 @@ const AccountCardImpl = ({ item }: AccountCardProps) => {
   };
 
   const proceedAfterWarn = () => {
-    if (proxyForThis) setProxyOpen(true);
+    const canProxy =
+      proxyForThis && !(service === 'steam' && pendingMethodRef.current === 'native');
+    if (canProxy) setProxyOpen(true);
     else void runLogin(null);
   };
 
   const handleLogin = () => {
     if (!service) return;
+    pendingMethodRef.current = loginMethodFor(service);
     // Steam sign-in may need to fetch the mafile (for a Steam Guard code), which
     // cancels the account's active warranty. Warn first when a warranty is live.
     if (service === 'steam' && warranty) {
+      setWarnOpen(true);
+      return;
+    }
+    proceedAfterWarn();
+  };
+
+  const handleLoginViaBrowser = () => {
+    if (service !== 'steam') return;
+    setMenuOpen(false);
+    pendingMethodRef.current = 'web';
+    if (warranty) {
       setWarnOpen(true);
       return;
     }
@@ -488,21 +546,19 @@ const AccountCardImpl = ({ item }: AccountCardProps) => {
       <div className={s.topSection}>
         <header className={s.head}>
           <div className={s.thumbBlock}>
-              {item.imageUrl ? (
-                <img className={s.logo} src={item.imageUrl} alt="" />
-              ) : categoryLogo ? (
-                <img className={s.logo} src={categoryLogo} alt="" />
-              ) : (
-                <Tag size={20} />
-              )}
+            {item.imageUrl ? (
+              <img className={s.logo} src={item.imageUrl} alt="" />
+            ) : categoryLogo ? (
+              <img className={s.logo} src={categoryLogo} alt="" />
+            ) : (
+              <Tag size={20} />
+            )}
             <span className={s.category}>{item.categoryTitle}</span>
           </div>
           <div className={`${s.status} ${isInvalid ? s.statusInvalid : ''}`}>
-            <span className={s.dot}></span>
+            <span className={s.dot} />
             <h3 className={s.text}>
-              {isInvalid
-                ? t('inventory.card.statusInvalid')
-                : t('inventory.card.statusValid')}
+              {isInvalid ? t('inventory.card.statusInvalid') : t('inventory.card.statusValid')}
             </h3>
           </div>
         </header>
@@ -513,7 +569,7 @@ const AccountCardImpl = ({ item }: AccountCardProps) => {
           <div className={s.aboutBlock}>
             {aboutParts.map((part, i) => (
               <Fragment key={i}>
-                {i > 0 && <span className={s.dot}></span>}
+                {i > 0 && <span className={s.dot} />}
                 {part}
               </Fragment>
             ))}
@@ -527,45 +583,43 @@ const AccountCardImpl = ({ item }: AccountCardProps) => {
 
         {chipTags.length > 0 && (
           <div className={s.tagsBlock}>
-            {chipTags.map((tag) => (
-              <div key={tag.id} className={s.tagsItem}>
-                {tag.title}
-              </div>
-            ))}
+            {chipTags.map((tag) => {
+              const c = colorForTag(tag);
+              return (
+                <div
+                  key={tag.id}
+                  className={s.tagsItem}
+                  style={{ backgroundColor: c.background, color: c.text }}
+                >
+                  {tag.title}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
-
 
       <div className={s.bottomBlock}>
-        <span className={s.divider}></span>
+        <span className={s.divider} />
 
         <div className={s.bottomGroup}>
-        {purchased && (
+          {purchased && (
+            <div className={s.bottomItem}>
+              <span className={s.description}>{t('inventory.card.purchasedLabel')}</span>
+              <span className={s.title}>{purchased}</span>
+            </div>
+          )}
+          {warranty && (
+            <div className={s.bottomItem}>
+              <span className={s.description}>{t('inventory.card.warrantyLabel')}</span>
+              <span className={s.title}>{warranty}</span>
+            </div>
+          )}
           <div className={s.bottomItem}>
-              <span className={s.description}>
-                {t('inventory.card.purchasedLabel')}
-              </span>
-            <span className={s.title}>{purchased}</span>
+            <span className={s.description}>{t('inventory.card.priceLabel')}</span>
+            <span className={s.title}>{formatPrice(item.price, item.currency, i18n.language)}</span>
           </div>
-        )}
-        {warranty && (
-          <div className={s.bottomItem}>
-              <span className={s.description}>
-                {t('inventory.card.warrantyLabel')}
-              </span>
-            <span className={s.title}>{warranty}</span>
-          </div>
-        )}
-        <div className={s.bottomItem}>
-            <span className={s.description}>
-              {t('inventory.card.priceLabel')}
-            </span>
-          <span className={s.title}>
-              {formatPrice(item.price, item.currency, i18n.language)}
-            </span>
         </div>
-      </div>
         <div className={s.buttonGroup}>
           <Tooltip
             label={
@@ -595,15 +649,51 @@ const AccountCardImpl = ({ item }: AccountCardProps) => {
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
               >
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path d="M12 13C12.5523 13 13 12.5523 13 12C13 11.4477 12.5523 11 12 11C11.4477 11 11 11.4477 11 12C11 12.5523 11.4477 13 12 13Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M19 13C19.5523 13 20 12.5523 20 12C20 11.4477 19.5523 11 19 11C18.4477 11 18 11.4477 18 12C18 12.5523 18.4477 13 19 13Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M5 13C5.55228 13 6 12.5523 6 12C6 11.4477 5.55228 11 5 11C4.44772 11 4 11.4477 4 12C4 12.5523 4.44772 13 5 13Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <path
+                    d="M12 13C12.5523 13 13 12.5523 13 12C13 11.4477 12.5523 11 12 11C11.4477 11 11 11.4477 11 12C11 12.5523 11.4477 13 12 13Z"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M19 13C19.5523 13 20 12.5523 20 12C20 11.4477 19.5523 11 19 11C18.4477 11 18 11.4477 18 12C18 12.5523 18.4477 13 19 13Z"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M5 13C5.55228 13 6 12.5523 6 12C6 11.4477 5.55228 11 5 11C4.44772 11 4 11.4477 4 12C4 12.5523 4.44772 13 5 13Z"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </button>
             </Tooltip>
             {menuOpen && (
               <div className={s.menu} role="menu">
+                {service === 'steam' && (
+                  <button
+                    type="button"
+                    className={s.menuItem}
+                    role="menuitem"
+                    onClick={handleLoginViaBrowser}
+                    disabled={!canLogin || busy}
+                  >
+                    <Globe size={16} />
+                    <span>{t('inventory.card.loginViaBrowser')}</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   className={s.menuItem}
@@ -614,12 +704,11 @@ const AccountCardImpl = ({ item }: AccountCardProps) => {
                   <ShieldCheck size={16} />
                   <span>{t('inventory.card.checkValidity')}</span>
                 </button>
-                <button
-                  type="button"
-                  className={s.menuItem}
-                  role="menuitem"
-                  onClick={openOnMarket}
-                >
+                <button type="button" className={s.menuItem} role="menuitem" onClick={openLabels}>
+                  <Tags size={16} />
+                  <span>{t('inventory.card.labelsMenu')}</span>
+                </button>
+                <button type="button" className={s.menuItem} role="menuitem" onClick={openOnMarket}>
                   <ExternalLink size={16} />
                   <span>{t('inventory.card.openOnMarket')}</span>
                 </button>
@@ -631,15 +720,9 @@ const AccountCardImpl = ({ item }: AccountCardProps) => {
 
       {warnOpen && (
         <Modal title={t('inventory.card.warrantyWarnTitle')} onClose={() => setWarnOpen(false)}>
-          <p className={s.warnBody}>
-            {t('inventory.card.warrantyWarnBody', { warranty })}
-          </p>
+          <p className={s.warnBody}>{t('inventory.card.warrantyWarnBody', { warranty })}</p>
           <div className={s.warnActions}>
-            <button
-              type="button"
-              className={s.warnCancel}
-              onClick={() => setWarnOpen(false)}
-            >
+            <button type="button" className={s.warnCancel} onClick={() => setWarnOpen(false)}>
               {t('inventory.card.warrantyWarnCancel')}
             </button>
             <button
@@ -692,8 +775,7 @@ const AccountCardImpl = ({ item }: AccountCardProps) => {
                           <span className={res.ok ? s.proxyOk : s.proxyFail}>
                             {res.ok
                               ? t('inventory.card.proxy.statusValid')
-                              : t('inventory.card.proxy.statusInvalid')}
-                            {' '}
+                              : t('inventory.card.proxy.statusInvalid')}{' '}
                             ({formatAgo(res.checkedAt, i18n.language)})
                           </span>
                           {res.ok && res.ms !== undefined && (
@@ -749,11 +831,7 @@ const AccountCardImpl = ({ item }: AccountCardProps) => {
             >
               {t('inventory.card.proxy.change')}
             </button>
-            <button
-              type="button"
-              className={s.warnCancel}
-              onClick={() => setProxyFailed(null)}
-            >
+            <button type="button" className={s.warnCancel} onClick={() => setProxyFailed(null)}>
               {t('inventory.card.proxy.exit')}
             </button>
             <button
@@ -771,10 +849,7 @@ const AccountCardImpl = ({ item }: AccountCardProps) => {
       )}
 
       {checkOpen && (
-        <Modal
-          title={t('inventory.card.checkTitle')}
-          onClose={closeCheck}
-        >
+        <Modal title={t('inventory.card.checkTitle')} onClose={closeCheck}>
           <div className={s.checkBody}>
             {checking ? (
               <div className={s.checkPending}>
@@ -797,22 +872,75 @@ const AccountCardImpl = ({ item }: AccountCardProps) => {
                 <div className={`${s.checkResult} ${s.checkResultBad}`}>
                   <Ban size={32} />
                   <p className={s.checkText}>{t('inventory.card.checkInvalidResult')}</p>
-                  {checkResult.reason && (
-                    <p className={s.checkSub}>{checkResult.reason}</p>
-                  )}
+                  {checkResult.reason && <p className={s.checkSub}>{checkResult.reason}</p>}
                 </div>
               )
             ) : null}
           </div>
           <div className={s.warnActions}>
-            <button
-              type="button"
-              className={s.warnConfirm}
-              onClick={closeCheck}
-            >
+            <button type="button" className={s.warnConfirm} onClick={closeCheck}>
               {t('inventory.card.checkClose')}
             </button>
           </div>
+        </Modal>
+      )}
+
+      {labelsOpen && (
+        <Modal
+          title={t('inventory.card.labelsTitle')}
+          closable
+          onClose={() => setLabelsOpen(false)}
+        >
+          {labelsLoading && labels.length === 0 ? (
+            <div className={s.labelsLoading}>
+              <Loader2 size={28} className={s.spin} />
+            </div>
+          ) : labels.length === 0 ? (
+            <div className={s.labelsEmpty}>
+              <p className={s.checkText}>{t('inventory.card.labelsEmpty')}</p>
+              <button
+                type="button"
+                className={s.labelsWebBtn}
+                onClick={() => void window.launcher.app.openExternal('https://lzt.market/tags/')}
+              >
+                <ExternalLink size={14} />
+                <span>{t('inventory.card.labelsManageWeb')}</span>
+              </button>
+            </div>
+          ) : (
+            <ul className={s.labelsList}>
+              {labels.map((label) => {
+                const attached = (item.tags ?? []).some((tg) => tg.id === label.id);
+                const busyTag = togglingTag.has(label.id);
+                const c = labelColors(label.bc);
+                return (
+                  <li key={label.id}>
+                    <button
+                      type="button"
+                      className={`${s.labelRow} ${attached ? s.labelRowOn : ''}`}
+                      onClick={() => void toggleLabel(label)}
+                      disabled={busyTag}
+                      aria-pressed={attached}
+                    >
+                      <span
+                        className={s.labelChip}
+                        style={{ backgroundColor: c.background, color: c.text }}
+                      >
+                        {label.title}
+                      </span>
+                      <span className={s.labelState}>
+                        {busyTag ? (
+                          <Loader2 size={16} className={s.spin} />
+                        ) : attached ? (
+                          <Check size={16} />
+                        ) : null}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </Modal>
       )}
     </article>

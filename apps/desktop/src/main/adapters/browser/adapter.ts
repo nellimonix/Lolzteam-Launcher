@@ -1,4 +1,3 @@
-import { BrowserWindow, session } from 'electron';
 import type {
   AdapterContext,
   LoginMethod,
@@ -7,38 +6,9 @@ import type {
   ServiceAdapter,
 } from '@adapter-contract';
 import type { AccountDetails, ServiceId } from '@shared-types';
-import { MAIN_COLORS } from '../../theme';
 import { failLogin as fail } from '../_shared/fail';
-import { applyProxyToSession, clearProxyFromSession } from '../../services/proxy';
-import { extractBrowserLogin, type InjectableCookie } from './extract';
-import { createBrowserShell } from './browser-shell';
-
-const injectCookies = async (
-  partition: string,
-  cookies: InjectableCookie[],
-  ctx: AdapterContext,
-): Promise<void> => {
-  const ses = session.fromPartition(partition);
-  // Start from a clean slate so a stale prior session can't shadow the cookies
-  // we're about to write for the just-purchased account.
-  await ses.clearStorageData();
-
-  if (ctx.proxy) {
-    await applyProxyToSession(ses, ctx.proxy);
-    ctx.log.info(`[browser] routing #${partition} via proxy ${ctx.proxy.host}:${ctx.proxy.port}`);
-  } else {
-    await clearProxyFromSession(ses);
-  }
-
-  for (const cookie of cookies) {
-    try {
-      await ses.cookies.set(cookie);
-    } catch (err) {
-      // One bad cookie shouldn't abort the whole login — log and continue.
-      ctx.log.warn(`[browser] failed to set cookie ${cookie.name}`, err);
-    }
-  }
-};
+import { extractBrowserLogin } from './extract';
+import { injectCookies, openBrowserWindow } from './shell-window';
 
 const createBrowserAdapter = (id: ServiceId, displayName: string): ServiceAdapter => ({
   id,
@@ -74,8 +44,6 @@ const createBrowserAdapter = (id: ServiceId, displayName: string): ServiceAdapte
       return fail('У этого аккаунта нет cookie для входа через браузер', method);
     }
 
-    // A persistent, per-account partition keeps each account's session isolated
-    // and lets the buyer stay logged in across launches.
     const partition = `persist:lzt-account-${account.itemId}`;
 
     ctx.onProgress?.({ step: 'injecting-cookies' });
@@ -86,37 +54,17 @@ const createBrowserAdapter = (id: ServiceId, displayName: string): ServiceAdapte
 
     ctx.onProgress?.({ step: 'launching-browser' });
     ctx.log.info(`[browser] opening ${data.landingUrl}`);
-
-    const win = new BrowserWindow({
-      width: 1180,
-      height: 820,
-      backgroundColor: MAIN_COLORS.bg,
-      title: `${displayName} — ${account.title}`,
-      autoHideMenuBar: true,
-      webPreferences: {
-        partition,
-        contextIsolation: true,
-        sandbox: true,
-        nodeIntegration: false,
-      },
-    });
-    win.setMenu(null);
-
-    const { siteView } = createBrowserShell(win, {
+    const { windowId } = openBrowserWindow(
       partition,
-      log: ctx.log,
-      proxy: ctx.proxy,
-      proxyTest: ctx.proxyTest,
-    });
-    siteView.webContents.loadURL(data.landingUrl).catch((err: unknown) => {
-      const msg = err instanceof Error ? err.message : String(err);
-      ctx.log.warn(`[browser] loadURL failed: ${msg}`);
-    });
+      data.landingUrl,
+      `${displayName} — ${account.title}`,
+      ctx,
+    );
 
     return {
       ok: true,
       method,
-      windowId: win.id,
+      windowId,
       message: `${displayName} открыт под аккаунтом ${account.title}`,
     };
   },

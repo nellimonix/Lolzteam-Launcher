@@ -3,7 +3,15 @@ import type { ServiceId } from './service-id';
 export type LocalePreference = 'ru' | 'en';
 export type Locale = 'ru' | 'en';
 
-export const PROXY_CAPABLE_SERVICES: ServiceId[] = ['telegram', 'tiktok', 'instagram', 'discord'];
+// Steam is proxy-capable only for the "open in browser" login; the native
+// desktop-client login connects directly and ignores any selected proxy.
+export const PROXY_CAPABLE_SERVICES: ServiceId[] = [
+  'steam',
+  'telegram',
+  'tiktok',
+  'instagram',
+  'discord',
+];
 
 export interface ProxyTestResult {
   ok: boolean;

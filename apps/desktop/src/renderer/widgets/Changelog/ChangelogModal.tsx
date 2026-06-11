@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import { Modal } from '~/widgets/Modal/Modal';
 import { CHANGELOG } from '~/data/changelog';
+import { Modal } from '~/widgets/Modal/Modal';
 import s from './ChangelogModal.module.scss';
 
 interface ChangelogModalProps {

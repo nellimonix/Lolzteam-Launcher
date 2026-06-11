@@ -1,8 +1,8 @@
-import { BrowserWindow, session } from 'electron';
 import { randomUUID } from 'node:crypto';
-import log from 'electron-log/main';
 import { IPC_CHANNELS, parseAuthCallback } from '@shared-ipc';
 import type { AuthTokenPayload } from '@shared-types';
+import { type BrowserWindow, session } from 'electron';
+import log from 'electron-log/main';
 import { saveToken } from './token-store';
 
 type GetWindow = () => BrowserWindow | null;
@@ -33,7 +33,9 @@ const pruneStates = () => {
 };
 
 const consumeState = (state: string | null): boolean => {
-  if (!state) return states.size === 0;
+  // Both auth flows always issue and echo a state; a callback without one can
+  // only come from an external deep link — reject it (login-CSRF protection).
+  if (!state) return false;
   const rec = states.get(state);
   if (!rec) return false;
   if (Date.now() - rec.createdAt > STATE_TTL_MS) {
@@ -56,7 +58,11 @@ const isRecentToken = (token: string): boolean => {
 
 export type AuthOutcome =
   | { ok: true }
-  | { ok: false; reason: 'no-token' | 'state-mismatch' | 'duplicate' | 'oauth-error'; message?: string };
+  | {
+      ok: false;
+      reason: 'no-token' | 'state-mismatch' | 'duplicate' | 'oauth-error';
+      message?: string;
+    };
 
 export const acceptAuthCallback = async (
   url: string,

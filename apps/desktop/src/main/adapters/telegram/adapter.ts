@@ -7,12 +7,12 @@ import type {
   ProbeResult,
   ServiceAdapter,
 } from '@adapter-contract';
-import type { AccountDetails } from '@shared-types';
 import type { StringSessionData } from '@mtcute/node/utils.js';
+import type { AccountDetails } from '@shared-types';
 import { failLogin as fail } from '../_shared/fail';
 import { extractTelegramCreds } from './extract';
-import { killTelegramProcesses, waitForTelegramExit } from './process';
 import { ensurePortableMarker, fileExists, getTdataDir } from './paths';
+import { killTelegramProcesses, waitForTelegramExit } from './process';
 import { buildOfflineSession } from './session';
 import { writeProxySettings } from './settings-tdf';
 import { mergeSessions, readExistingSessions, toSessionData, writeTdata } from './tdata';
@@ -58,7 +58,9 @@ export const telegramAdapter: ServiceAdapter = {
     if (!creds) return fail('У этого аккаунта нет данных Telegram в lzt.market');
 
     if (!creds.authKey) {
-      return fail('Нет данных сессии Telegram для восстановления (loginData.raw пуст или некорректен)');
+      return fail(
+        'Нет данных сессии Telegram для восстановления (loginData.raw пуст или некорректен)',
+      );
     }
 
     ctx.onProgress?.({ step: 'building-tdata' });
@@ -80,7 +82,12 @@ export const telegramAdapter: ServiceAdapter = {
     ctx.onProgress?.({ step: 'killing-telegram' });
     ctx.log.info('[telegram] killing Telegram processes');
     await killTelegramProcesses(exe);
-    await waitForTelegramExit(exe, 5000);
+    const exited = await waitForTelegramExit(exe, 5000);
+    if (!exited) {
+      return fail(
+        'Telegram всё ещё запущен (возможно, от имени администратора). Закройте его вручную и повторите вход.',
+      );
+    }
 
     if (ctx.abortSignal.aborted) return fail('Вход отменён');
 
@@ -92,6 +99,16 @@ export const telegramAdapter: ServiceAdapter = {
       const msg = err instanceof Error ? err.message : String(err);
       return fail(`Папка с Telegram.exe недоступна на запись: ${msg}`);
     }
+    const stagingDir = `${tdataDir}.new`;
+    const backupDir = `${tdataDir}.bak`;
+    if (!(await fileExists(tdataDir)) && (await fileExists(backupDir))) {
+      try {
+        await rename(backupDir, tdataDir);
+        ctx.log.warn('[telegram] restored tdata from interrupted swap backup');
+      } catch (err) {
+        ctx.log.warn(`[telegram] failed to restore tdata backup: ${String(err)}`);
+      }
+    }
     // Preserve previously added accounts: read what's already in tdata, drop any
     // stale entry for this same user, prepend the new session (it becomes active)
     // and cap the total. Falls back to a single-account write if the existing
@@ -99,18 +116,25 @@ export const telegramAdapter: ServiceAdapter = {
     const incoming = toSessionData(session);
     const existing = await readExistingSessions(tdataDir, ctx.log);
     const merged = mergeSessions(incoming, existing);
-    ctx.log.info(
-      `[telegram] writing tdata to ${tdataDir}: ${merged.length} account(s) (offline)`,
-    );
-    // Write into a staging dir first, then swap it into place. This way a failed
-    // write never destroys the existing tdata — we only rm the live folder once
-    // the new one is fully written.
-    const stagingDir = `${tdataDir}.new`;
+    ctx.log.info(`[telegram] writing tdata to ${tdataDir}: ${merged.length} account(s) (offline)`);
     try {
       await rm(stagingDir, { recursive: true, force: true });
       await writeTdata(merged, stagingDir);
-      await rm(tdataDir, { recursive: true, force: true });
-      await rename(stagingDir, tdataDir);
+      await rm(backupDir, { recursive: true, force: true });
+      let hadBackup = false;
+      try {
+        await rename(tdataDir, backupDir);
+        hadBackup = true;
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+      }
+      try {
+        await rename(stagingDir, tdataDir);
+      } catch (err) {
+        if (hadBackup) await rename(backupDir, tdataDir).catch(() => {});
+        throw err;
+      }
+      if (hadBackup) await rm(backupDir, { recursive: true, force: true }).catch(() => {});
     } catch (err) {
       await rm(stagingDir, { recursive: true, force: true }).catch(() => {});
       const msg = err instanceof Error ? err.message : String(err);
@@ -120,9 +144,7 @@ export const telegramAdapter: ServiceAdapter = {
     if (ctx.proxy) {
       try {
         await writeProxySettings(tdataDir, ctx.proxy);
-        ctx.log.info(
-          `[telegram] proxy settings written: ${ctx.proxy.host}:${ctx.proxy.port}`,
-        );
+        ctx.log.info(`[telegram] proxy settings written: ${ctx.proxy.host}:${ctx.proxy.port}`);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         ctx.log.warn(`[telegram] failed to write proxy settings (continuing direct): ${msg}`);

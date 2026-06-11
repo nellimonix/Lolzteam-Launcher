@@ -1,6 +1,6 @@
-import { Boxes, ShoppingBag, Settings, Wallet } from 'lucide-react';
+import { Boxes, Settings, ShoppingBag, Wallet } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useView, type ViewId } from '~/stores/view';
+import { type ViewId, useView } from '~/stores/view';
 import s from './Sidebar.module.scss';
 
 interface NavItem {

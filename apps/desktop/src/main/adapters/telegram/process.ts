@@ -24,7 +24,11 @@ const findPidsByPath = async (exePath: string): Promise<number[]> => {
       const sep = line.indexOf('|');
       if (sep === -1) continue;
       const pid = Number(line.slice(0, sep).trim());
-      const path = line.slice(sep + 1).trim().replace(/\//g, '\\').toLowerCase();
+      const path = line
+        .slice(sep + 1)
+        .trim()
+        .replace(/\//g, '\\')
+        .toLowerCase();
       if (Number.isInteger(pid) && pid > 0 && path === target) pids.push(pid);
     }
     return pids;
@@ -39,19 +43,17 @@ export const killTelegramProcesses = async (exePath: string): Promise<void> => {
   for (const pid of pids) {
     try {
       await execFileAsync('taskkill', ['/F', '/PID', String(pid)], { windowsHide: true });
-    } catch {
-    }
+    } catch {}
   }
 };
 
-export const waitForTelegramExit = async (
-  exePath: string,
-  timeoutMs = 5000,
-): Promise<void> => {
-  if (process.platform !== 'win32') return;
+/** Resolves true once no process is running from `exePath`, false if the timeout expires first. */
+export const waitForTelegramExit = async (exePath: string, timeoutMs = 5000): Promise<boolean> => {
+  if (process.platform !== 'win32') return true;
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    if ((await findPidsByPath(exePath)).length === 0) return;
+    if ((await findPidsByPath(exePath)).length === 0) return true;
     await new Promise((r) => setTimeout(r, 250));
   }
+  return false;
 };

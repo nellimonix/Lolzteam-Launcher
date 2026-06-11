@@ -24,6 +24,8 @@
   "topbar": {
     "title": "My accounts",
     "logout": "Sign out",
+    "language": "Language",
+    "currency": "Currency",
     "loadingAccounts": "Loading your accounts",
     "loadingCategory": "Loading {{service}} · {{count}} loaded",
     "loadingCategoryPage": "Loading {{service}} · page {{page}}/{{total}} · {{count}} loaded",
@@ -36,7 +38,7 @@
     "network": {
       "checking": "Checking connection to API…",
       "online": "Connected to API · {{ms}} ms",
-      "offline": "No connection to API",
+      "offline": "No connection to API — check your internet or use a VPN",
       "retry": "Retry"
     },
     "openInApp": "Sign in here",
@@ -47,7 +49,7 @@
   },
   "connection": {
     "title": "No connection to the API",
-    "subtitle": "Can't reach the API. Check your internet and press \"Retry\".",
+    "subtitle": "Can't reach the API. Check your internet or use a VPN — lzt.market may be blocked by your ISP. Then press \"Retry\".",
     "retry": "Retry",
     "retrying": "Connecting…"
   },
@@ -96,6 +98,7 @@
     "filters": {
       "title": "Filters",
       "sortLabel": "Sorting",
+      "labelLabel": "Label",
       "hideInvalid": "Hide invalid accounts",
       "reset": "Reset filters"
     },
@@ -105,6 +108,11 @@
       "warrantyHours_one": "{{count}} hour warranty",
       "warrantyHours_other": "{{count}} hours warranty",
       "login": "Sign in",
+      "loginViaBrowser": "Sign in via browser",
+      "labelsMenu": "Labels",
+      "labelsTitle": "Account labels",
+      "labelsEmpty": "You don't have any labels yet. Create them on the website, then refresh the list.",
+      "labelsManageWeb": "Manage labels on the website",
       "busy": "Launching…",
       "loginTooltip": "Sign in to this account",
       "loginInvalidTooltip": "Account is invalid — sign-in may fail",
@@ -178,6 +186,37 @@
     "app": {
       "title": "Application"
     },
+    "profile": {
+      "title": "Profile",
+      "back": "Back",
+      "labelsMenu": "Labels",
+      "labelsMenuHint": "Profile labels for your accounts",
+      "labelsTitle": "Labels",
+      "labelsHint": "Labels from your lzt.market profile. Attach them to accounts from the card.",
+      "refresh": "Refresh labels",
+      "loading": "Loading labels…",
+      "empty": "No labels yet. Create them on the website and press \"Refresh labels\".",
+      "webOnlyHint": "Labels themselves can only be created or deleted on the website."
+    },
+    "currency": {
+      "menuLabel": "Currency",
+      "menuHint": "Not selected",
+      "modalTitle": "Choose currency",
+      "failed": "Couldn't change the currency",
+      "names": {
+        "rub": "Russian ruble",
+        "uah": "Hryvnia",
+        "kzt": "Tenge",
+        "byn": "Belarusian ruble",
+        "usd": "US dollar",
+        "eur": "Euro",
+        "gbp": "Pound sterling",
+        "cny": "Yuan",
+        "try": "Turkish lira",
+        "jpy": "Yen",
+        "brl": "Brazilian real"
+      }
+    },
     "telegram": {
       "title": "Telegram",
       "description": "Path to the portable Telegram or a compatible fork (AyuGram, Kotatogram, 64Gram). When you sign in, the launcher writes the session next to this file and launches it already logged in.",
@@ -224,7 +263,7 @@
       "toggleLabel": "Use proxy",
       "toggleHint": "When signing in you'll be able to pick a proxy from the list",
       "servicesLabel": "Services using proxy",
-      "servicesHint": "A proxy will only be offered for the selected services",
+      "servicesHint": "A proxy will only be offered for the selected services. For Steam, the proxy applies only to browser sign-in.",
       "addTitle": "Add proxies",
       "addLabel": "Add proxies",
       "checkOnAdd": "Check validity",
@@ -240,6 +279,9 @@
       "editLabel": "Edit",
       "deleteLabel": "Delete",
       "listCount": "Proxies: {{count}}",
+      "checkAll": "Check all",
+      "checkAllProgress": "Checking {{done}}/{{total}}…",
+      "deleteInvalid": "Delete invalid ({{count}})",
       "deleteAll": "Delete all",
       "deleteAllConfirmTitle": "Delete all proxies?",
       "deleteAllConfirmBody": "The entire proxy list will be cleared. This action cannot be undone.",

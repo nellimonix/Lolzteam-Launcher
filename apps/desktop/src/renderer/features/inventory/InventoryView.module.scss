@@ -313,6 +313,44 @@
   color: $color-text-muted;
 }
 
+.labelChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2;
+  max-height: 168px;
+  overflow-y: auto;
+  @include scrollbar;
+}
+
+.labelChip {
+  @include button-reset;
+  @include clickable;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: $space-1 $space-3;
+  border-radius: 999px;
+  font-size: $fs-sm;
+  font-weight: 600;
+  color: $color-text-soft;
+  background: $color-surface-overlay;
+  border: 1px solid $color-border;
+  transition: color $duration-fast $ease-out, background $duration-fast $ease-out;
+
+  &:hover {
+    color: $color-text;
+  }
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+}
+
+.labelChipOn {
+  // Background/colour come from the label's own hue via inline style.
+  border-color: transparent;
+}
+
 .sortRow {
   display: flex;
   align-items: center;

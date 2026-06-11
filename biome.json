@@ -31,16 +31,25 @@
     "enabled": true,
     "rules": {
       "recommended": true,
+      "a11y": {
+        "noAutofocus": "off",
+        "noSvgWithoutTitle": "off",
+        "useKeyWithClickEvents": "off",
+        "useSemanticElements": "off",
+        "useValidAnchor": "off"
+      },
       "style": {
         "useImportType": "error",
-        "useNodejsImportProtocol": "error"
+        "useNodejsImportProtocol": "error",
+        "noNonNullAssertion": "off"
       },
       "correctness": {
         "noUnusedVariables": "warn",
         "noUnusedImports": "warn"
       },
       "suspicious": {
-        "noExplicitAny": "warn"
+        "noExplicitAny": "warn",
+        "noArrayIndexKey": "off"
       }
     }
   }

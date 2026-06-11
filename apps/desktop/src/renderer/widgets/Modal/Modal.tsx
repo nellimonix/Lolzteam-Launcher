@@ -1,6 +1,6 @@
-import { useEffect, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { type ReactNode, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import s from './Modal.module.scss';
 

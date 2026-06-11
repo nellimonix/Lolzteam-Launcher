@@ -1,21 +1,29 @@
-import { ipcMain, type IpcMainInvokeEvent } from 'electron';
 import { IPC_CHANNELS } from '@shared-ipc';
-import {
-  checkAccountValidity,
-  getAccountDetails,
-  listAccountsByCategory,
-  listPurchasedAccounts,
-} from '../services/market';
+import { SERVICE_CATEGORY_ID } from '@shared-types';
+import type { AccountSummary, ServiceId } from '@shared-types';
+import { type IpcMainInvokeEvent, ipcMain } from 'electron';
+import { onTokenChange } from '../auth/token-store';
 import {
   clearCachedAccounts,
   loadCachedAccounts,
   saveCachedAccounts,
 } from '../services/accounts-cache-store';
-import { onTokenChange } from '../auth/token-store';
-import { SERVICE_CATEGORY_ID } from '@shared-types';
-import type { AccountSummary, ServiceId } from '@shared-types';
+import {
+  addItemTag,
+  checkAccountValidity,
+  getAccountDetails,
+  listAccountsByCategory,
+  listPurchasedAccounts,
+  removeItemTag,
+} from '../services/market';
 
-const STREAM_ORDER: readonly ServiceId[] = ['steam', 'telegram', 'tiktok', 'instagram', 'discord'] as const;
+const STREAM_ORDER: readonly ServiceId[] = [
+  'steam',
+  'telegram',
+  'tiktok',
+  'instagram',
+  'discord',
+] as const;
 
 let inflight: Promise<AccountSummary[]> | null = null;
 
@@ -40,10 +48,7 @@ const loadCached = async (): Promise<AccountSummary[]> => {
 
 let streaming = false;
 
-const streamCategories = async (
-  event: IpcMainInvokeEvent,
-  only?: ServiceId,
-): Promise<void> => {
+const streamCategories = async (event: IpcMainInvokeEvent, only?: ServiceId): Promise<void> => {
   if (streaming) return;
   streaming = true;
   const send = (payload: Parameters<typeof event.sender.send>[1]) => {
@@ -53,8 +58,7 @@ const streamCategories = async (
   };
   // When a single category is requested, stream only it and replace just its
   // slice of the cache. Otherwise stream the full fixed order and overwrite.
-  const target =
-    only !== undefined && STREAM_ORDER.includes(only) ? only : undefined;
+  const target = only !== undefined && STREAM_ORDER.includes(only) ? only : undefined;
   const order: readonly ServiceId[] = target ? [target] : STREAM_ORDER;
   const all: AccountSummary[] = [];
   let unfiltered: AccountSummary[] | null = null;
@@ -101,22 +105,41 @@ const streamCategories = async (
   }
 };
 
+const toItemId = (payload?: { itemId?: unknown }): number => {
+  const id = Number(payload?.itemId);
+  if (!Number.isInteger(id) || id <= 0) throw new Error('invalid itemId');
+  return id;
+};
+
+const toTagId = (payload?: { tagId?: unknown }): number => {
+  const id = Number(payload?.tagId);
+  if (!Number.isInteger(id) || id <= 0) throw new Error('invalid tagId');
+  return id;
+};
+
 export const registerAccountsIpc = () => {
   ipcMain.handle(IPC_CHANNELS.ACCOUNTS_LIST, () => loadCached());
-  ipcMain.handle(
-    IPC_CHANNELS.ACCOUNTS_LIST_STREAM,
-    (event, payload?: { only?: ServiceId }) => streamCategories(event, payload?.only),
+  ipcMain.handle(IPC_CHANNELS.ACCOUNTS_LIST_STREAM, (event, payload?: { only?: ServiceId }) =>
+    streamCategories(event, payload?.only),
   );
   ipcMain.handle(IPC_CHANNELS.ACCOUNTS_REFRESH, () => fetchAndCache());
   ipcMain.handle(IPC_CHANNELS.ACCOUNTS_CLEAR_CACHE, async () => {
     inflight = null;
     await clearCachedAccounts();
   });
-  ipcMain.handle(IPC_CHANNELS.ACCOUNTS_GET, (_e, payload: { itemId: number }) =>
-    getAccountDetails(payload.itemId),
+  ipcMain.handle(IPC_CHANNELS.ACCOUNTS_GET, (_e, payload?: { itemId: number }) =>
+    getAccountDetails(toItemId(payload)),
   );
-  ipcMain.handle(IPC_CHANNELS.ACCOUNT_CHECK, (_e, payload: { itemId: number }) =>
-    checkAccountValidity(payload.itemId),
+  ipcMain.handle(IPC_CHANNELS.ACCOUNT_CHECK, (_e, payload?: { itemId: number }) =>
+    checkAccountValidity(toItemId(payload)),
+  );
+  ipcMain.handle(IPC_CHANNELS.ACCOUNT_ADD_TAG, (_e, payload?: { itemId: number; tagId: number }) =>
+    addItemTag(toItemId(payload), toTagId(payload)),
+  );
+  ipcMain.handle(
+    IPC_CHANNELS.ACCOUNT_REMOVE_TAG,
+    (_e, payload?: { itemId: number; tagId: number }) =>
+      removeItemTag(toItemId(payload), toTagId(payload)),
   );
 
   onTokenChange(() => {

@@ -4,14 +4,9 @@ export interface RawMarketTagEntry {
   [key: string]: unknown;
 }
 
-export type RawMarketTags =
-  | Record<string, RawMarketTagEntry>
-  | RawMarketTagEntry[]
-  | null;
+export type RawMarketTags = Record<string, RawMarketTagEntry> | RawMarketTagEntry[] | null;
 
-export type RawMarketBuyer =
-  | { operation_date?: number | string }
-  | Record<string, unknown>;
+export type RawMarketBuyer = { operation_date?: number | string } | Record<string, unknown>;
 
 export interface RawMarketSteamGameRecord {
   appid?: number | string;
@@ -106,9 +101,7 @@ export type EmailCodeResponse =
   | { item?: RawMarketItem; codeData: EmailCodeData }
   | { error: string; errors?: string[] | string };
 
-export type CheckAccountResponse =
-  | { status: string; item: RawMarketItem }
-  | { errors: string[] };
+export type CheckAccountResponse = { status: string; item: RawMarketItem } | { errors: string[] };
 
 export interface RawProfileResponse {
   user: {
@@ -118,7 +111,16 @@ export interface RawProfileResponse {
     view_url?: string | null;
     // Forum API returns balance as a string ("496910.40"); market API as a number.
     balance?: number | string;
+    convertedBalance?: number | string;
     currency?: string;
+    currencyPhrase?: string;
+    tags?: Array<{
+      tag_id: number;
+      title: string;
+      bc?: string;
+      isDefault?: boolean;
+      forOwnedAccountsOnly?: boolean;
+    }>;
     // Market `/me` nests rendered avatars + gradient username HTML here.
     rendered?: {
       username?: string | null;
@@ -137,4 +139,19 @@ export interface RawProfileResponse {
     };
     [key: string]: unknown;
   };
+}
+
+export interface RawTagOpResponse {
+  itemId?: number;
+  tag?: { title: string; bc?: string; tag_id: number; forOwnedAccountsOnly?: boolean } | null;
+  addedTagId?: number;
+  deleteTags?: number[];
+  errors?: string[] | string;
+  [key: string]: unknown;
+}
+
+export interface RawEditMeResponse {
+  user?: Record<string, unknown>;
+  errors?: string[] | string;
+  [key: string]: unknown;
 }

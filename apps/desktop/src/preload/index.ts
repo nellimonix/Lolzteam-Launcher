@@ -1,11 +1,11 @@
-import { contextBridge, ipcRenderer } from 'electron';
 import {
-  IPC_CHANNELS,
   type AccountsCategoryEvent,
   type CheckAccountResult,
+  IPC_CHANNELS,
   type LoginProgress,
   type NetworkStatus,
   type ProxyTestResult,
+  type TagOpResult,
   type UpdateStatus,
 } from '@shared-ipc';
 import type {
@@ -14,11 +14,14 @@ import type {
   AuthStatus,
   AuthTokenPayload,
   LauncherSettings,
+  MarketCurrency,
   PickFileOptions,
   ProxyEntry,
   ServiceId,
   SettingsResponse,
+  UserLabel,
 } from '@shared-types';
+import { contextBridge, ipcRenderer } from 'electron';
 
 type Unsubscribe = () => void;
 
@@ -50,8 +53,7 @@ const api = {
       on<AccountsCategoryEvent>(IPC_CHANNELS.ACCOUNTS_CATEGORY, h),
     refresh: () => invoke<AccountSummary[]>(IPC_CHANNELS.ACCOUNTS_REFRESH),
     clearCache: () => invoke<void>(IPC_CHANNELS.ACCOUNTS_CLEAR_CACHE),
-    get: (itemId: number) =>
-      invoke<AccountDetails | null>(IPC_CHANNELS.ACCOUNTS_GET, { itemId }),
+    get: (itemId: number) => invoke<AccountDetails | null>(IPC_CHANNELS.ACCOUNTS_GET, { itemId }),
     login: (
       itemId: number,
       method: 'native' | 'web' = 'native',
@@ -64,12 +66,20 @@ const api = {
         proxyId,
         proxyTest,
       }),
-    cancelLogin: (itemId: number) =>
-      invoke<void>(IPC_CHANNELS.ACCOUNT_LOGIN_CANCEL, { itemId }),
-    check: (itemId: number) =>
-      invoke<CheckAccountResult>(IPC_CHANNELS.ACCOUNT_CHECK, { itemId }),
+    cancelLogin: (itemId: number) => invoke<void>(IPC_CHANNELS.ACCOUNT_LOGIN_CANCEL, { itemId }),
+    check: (itemId: number) => invoke<CheckAccountResult>(IPC_CHANNELS.ACCOUNT_CHECK, { itemId }),
+    addTag: (itemId: number, tagId: number) =>
+      invoke<TagOpResult>(IPC_CHANNELS.ACCOUNT_ADD_TAG, { itemId, tagId }),
+    removeTag: (itemId: number, tagId: number) =>
+      invoke<TagOpResult>(IPC_CHANNELS.ACCOUNT_REMOVE_TAG, { itemId, tagId }),
     onLoginProgress: (h: (p: LoginProgress) => void) =>
       on<LoginProgress>(IPC_CHANNELS.ACCOUNT_LOGIN_PROGRESS, h),
+  },
+  profile: {
+    getLabels: () => invoke<UserLabel[]>(IPC_CHANNELS.PROFILE_LABELS_GET),
+    refreshLabels: () => invoke<UserLabel[]>(IPC_CHANNELS.PROFILE_LABELS_REFRESH),
+    setCurrency: (currency: MarketCurrency) =>
+      invoke<{ ok: boolean; message?: string }>(IPC_CHANNELS.PROFILE_SET_CURRENCY, { currency }),
   },
   settings: {
     get: () => invoke<SettingsResponse>(IPC_CHANNELS.SETTINGS_GET),
@@ -81,8 +91,7 @@ const api = {
       on<SettingsResponse>(IPC_CHANNELS.SETTINGS_CHANGED, h),
   },
   steam: {
-    clearSession: () =>
-      invoke<{ ok: boolean; message?: string }>(IPC_CHANNELS.STEAM_CLEAR_SESSION),
+    clearSession: () => invoke<{ ok: boolean; message?: string }>(IPC_CHANNELS.STEAM_CLEAR_SESSION),
   },
   proxy: {
     test: (input: Pick<ProxyEntry, 'host' | 'port' | 'username' | 'password'>) =>
@@ -91,18 +100,15 @@ const api = {
   app: {
     getVersion: () => invoke<string>(IPC_CHANNELS.APP_GET_VERSION),
     pingApi: () => invoke<NetworkStatus>(IPC_CHANNELS.APP_PING_API),
-    openExternal: (url: string) =>
-      invoke<void>(IPC_CHANNELS.APP_OPEN_EXTERNAL, { url }),
+    openExternal: (url: string) => invoke<void>(IPC_CHANNELS.APP_OPEN_EXTERNAL, { url }),
     openLogs: () => invoke<void>(IPC_CHANNELS.APP_OPEN_LOGS),
-    exportLog: () =>
-      invoke<{ ok: boolean; path?: string }>(IPC_CHANNELS.APP_EXPORT_LOG),
+    exportLog: () => invoke<{ ok: boolean; path?: string }>(IPC_CHANNELS.APP_EXPORT_LOG),
   },
   updater: {
     check: () => invoke<void>(IPC_CHANNELS.UPDATE_CHECK),
     download: () => invoke<void>(IPC_CHANNELS.UPDATE_DOWNLOAD),
     install: () => invoke<void>(IPC_CHANNELS.UPDATE_INSTALL),
-    onStatus: (h: (p: UpdateStatus) => void) =>
-      on<UpdateStatus>(IPC_CHANNELS.UPDATE_STATUS, h),
+    onStatus: (h: (p: UpdateStatus) => void) => on<UpdateStatus>(IPC_CHANNELS.UPDATE_STATUS, h),
   },
 } as const;
 

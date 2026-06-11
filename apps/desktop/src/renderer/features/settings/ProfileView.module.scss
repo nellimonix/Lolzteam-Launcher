@@ -1,0 +1,144 @@
+.container {
+  padding: 0 24px 24px 24px;
+}
+
+.block {
+  max-width: 640px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 4px;
+
+  .back {
+    @include button-reset;
+    @include clickable;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    color: $color-text;
+    background: #1F1F1F;
+    transition: background $duration-fast $ease-out;
+
+    &:hover {
+      background: #282828;
+    }
+
+    &:focus-visible {
+      @include focus-ring;
+    }
+  }
+
+  .headerTitle {
+    font-size: 18px;
+    font-weight: 600;
+    color: $color-text;
+  }
+}
+
+.labelsBlock {
+  background-color: #1F1F1F;
+  border-radius: 24px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.labelsHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  .text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    .title {
+      font-size: 15px;
+      color: $color-text;
+    }
+
+    .description {
+      font-size: 14px;
+      color: #949494;
+    }
+  }
+}
+
+.refreshBtn {
+  @include button-reset;
+  @include clickable;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #06170f;
+  background: $color-accent;
+  transition: filter $duration-fast $ease-out, opacity $duration-fast $ease-out;
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+
+  &:disabled {
+    opacity: .55;
+    cursor: default;
+  }
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 6px 12px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.empty {
+  margin: 0;
+  font-size: 14px;
+  color: #949494;
+}
+
+.webHint {
+  font-size: 13px;
+  color: #6f6f6f;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

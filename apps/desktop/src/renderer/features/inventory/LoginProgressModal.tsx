@@ -1,10 +1,10 @@
-import { useEffect } from 'react';
-import { AlertCircle, Check, Loader2 } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import type { TFunction } from 'i18next';
 import type { LoginStep } from '@adapter-contract';
+import type { TFunction } from 'i18next';
+import { AlertCircle, Check, Loader2 } from 'lucide-react';
+import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { type LoginMethod, type LoginService, useLoginSession } from '~/stores/loginSession';
 import { Modal } from '~/widgets/Modal/Modal';
-import { useLoginSession, type LoginService } from '~/stores/loginSession';
 import s from './LoginProgressModal.module.scss';
 
 interface StepDef {
@@ -41,17 +41,28 @@ const buildSteps = (t: TFunction): Record<LoginService, readonly StepDef[]> => (
   ],
 });
 
+// Steam "open in browser" reuses the credential flow but lands in the in-app
+// browser, so its step list differs from the native client sign-in.
+const steamWebSteps = (t: TFunction): readonly StepDef[] => [
+  { step: 'fetching-credentials', label: t('loginSteps.fetchingCredentials') },
+  { step: 'acquiring-token', label: t('loginSteps.acquiringToken') },
+  { step: 'fetching-email-code', label: t('loginSteps.fetchingEmailCode') },
+  { step: 'injecting-cookies', label: t('loginSteps.injectingCookies') },
+  { step: 'launching-browser', label: t('loginSteps.launchingBrowser') },
+];
+
 const visibleSteps = (
   stepsByService: Record<LoginService, readonly StepDef[]>,
   service: LoginService,
+  method: LoginMethod,
   currentStep: LoginStep | null,
   awaitingEmail: boolean,
+  t: TFunction,
 ): StepDef[] => {
   if (service !== 'steam') return [...stepsByService[service]];
+  const base = method === 'web' ? steamWebSteps(t) : stepsByService.steam;
   const skipEmail = !awaitingEmail && currentStep !== 'fetching-email-code';
-  return stepsByService.steam.filter((s) =>
-    s.step === 'fetching-email-code' ? !skipEmail : true,
-  );
+  return base.filter((s) => (s.step === 'fetching-email-code' ? !skipEmail : true));
 };
 
 type Status = 'done' | 'active' | 'pending' | 'failed';
@@ -71,7 +82,7 @@ const statusFor = (
 
 export const LoginProgressModal = () => {
   const { t } = useTranslation();
-  const { isOpen, itemId, accountTitle, service, step, detail, error, close } =
+  const { isOpen, itemId, accountTitle, service, method, step, detail, error, close } =
     useLoginSession();
 
   // Auto-dismiss shortly after a successful sign-in so the modal doesn't linger
@@ -96,7 +107,7 @@ export const LoginProgressModal = () => {
   const awaitingEmail = step === 'awaiting-email-code' || step === 'fetching-email-code';
 
   const stepsByService = buildSteps(t);
-  const steps = visibleSteps(stepsByService, svc, step, awaitingEmail);
+  const steps = visibleSteps(stepsByService, svc, method, step, awaitingEmail, t);
   const currentIdx = step ? steps.findIndex((x) => x.step === step) : -1;
   // collapse the "awaiting code" steps onto their "fetching code" line
   const effectiveIdx =

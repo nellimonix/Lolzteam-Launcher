@@ -1,12 +1,5 @@
+import { ArrowLeft, ArrowRight, Copy, ExternalLink, RotateCw, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import {
-  ArrowLeft,
-  ArrowRight,
-  Copy,
-  ExternalLink,
-  RotateCw,
-  X,
-} from 'lucide-react';
 import logoUrl from '~/assets/logolzt.svg';
 import s from './BrowserToolbar.module.scss';
 
@@ -18,9 +11,7 @@ interface NavState {
   title: string;
 }
 
-type RetestResult =
-  | { ok: true; ms: number; ip: string }
-  | { ok: false; message: string };
+type RetestResult = { ok: true; ms: number; ip: string } | { ok: false; message: string };
 
 interface BrowserNavBridge {
   back: () => Promise<unknown>;
@@ -160,9 +151,7 @@ export const BrowserToolbar = () => {
           type="button"
           className={s.iconBtn}
           onClick={() =>
-            state.isLoading
-              ? void window.browserNav.stop()
-              : void window.browserNav.reload()
+            state.isLoading ? void window.browserNav.stop() : void window.browserNav.reload()
           }
           title={state.isLoading ? L.stop : L.reload}
           aria-label={state.isLoading ? L.stop : L.reload}

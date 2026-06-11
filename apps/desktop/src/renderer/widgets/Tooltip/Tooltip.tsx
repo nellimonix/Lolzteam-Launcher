@@ -1,4 +1,6 @@
 import {
+  type ReactElement,
+  type ReactNode,
   cloneElement,
   useCallback,
   useEffect,
@@ -6,8 +8,6 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  type ReactElement,
-  type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
 import s from './Tooltip.module.scss';
@@ -49,6 +49,7 @@ export const Tooltip = ({
     if (timerRef.current) clearTimeout(timerRef.current);
   };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: unmount-only cleanup; clearTimer touches only refs
   useEffect(() => () => clearTimer(), []);
 
   const show = () => {
@@ -63,6 +64,7 @@ export const Tooltip = ({
     setPos(null);
   };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `label` changes the bubble size — reposition when it changes
   useLayoutEffect(() => {
     if (!open) return;
     const anchor = anchorRef.current;

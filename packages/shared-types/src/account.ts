@@ -12,7 +12,43 @@ export interface SteamGame {
 export interface AccountTag {
   id: number;
   title: string;
+  bc?: string;
 }
+
+export interface UserLabel {
+  id: number;
+  title: string;
+  bc: string;
+  isDefault: boolean;
+  forOwnedAccountsOnly: boolean;
+}
+
+export type MarketCurrency =
+  | 'rub'
+  | 'uah'
+  | 'kzt'
+  | 'byn'
+  | 'usd'
+  | 'eur'
+  | 'gbp'
+  | 'cny'
+  | 'try'
+  | 'jpy'
+  | 'brl';
+
+export const MARKET_CURRENCIES: readonly MarketCurrency[] = [
+  'rub',
+  'uah',
+  'kzt',
+  'byn',
+  'usd',
+  'eur',
+  'gbp',
+  'cny',
+  'try',
+  'jpy',
+  'brl',
+];
 
 export interface SteamInfo {
   tags: AccountTag[];

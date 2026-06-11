@@ -1,5 +1,3 @@
-import log from 'electron-log/main';
-import { app } from 'electron';
 import { MarketClient } from '@market-sdk';
 import type { RawMarketItem, RawProfileResponse } from '@market-sdk';
 import { categoryNameToServiceId } from '@shared-types';
@@ -12,9 +10,12 @@ import type {
   SteamGame,
   SteamInfo,
   TelegramInfo,
+  UserLabel,
 } from '@shared-types';
-import { loadToken, onTokenChange } from '../auth/token-store';
+import { app } from 'electron';
+import log from 'electron-log/main';
 import { extractSharedSecret } from '../adapters/steam/mafile';
+import { loadToken, onTokenChange } from '../auth/token-store';
 
 let client: MarketClient | null = null;
 
@@ -67,10 +68,11 @@ const normalizeProfile = (raw: RawProfileResponse): AuthSession => ({
   usernameHtml: pickUsernameHtml(raw.user),
   avatarUrl: pickAvatarUrl(raw.user),
   profileUrl: raw.user.view_url ?? raw.user.links?.permalink ?? null,
-  balance: parseBalance(raw.user.balance),
+  // `convertedBalance` is the spendable balance already in the selected currency;
+  // the raw `balance` is in a base unit and shouldn't be shown as-is.
+  balance: parseBalance(raw.user.convertedBalance ?? raw.user.balance),
   // Forum API gives a lowercase code ("rub"); uppercase it for display/Intl.
-  currency:
-    typeof raw.user.currency === 'string' ? raw.user.currency.toUpperCase() : null,
+  currency: typeof raw.user.currency === 'string' ? raw.user.currency.toUpperCase() : null,
 });
 
 export const fetchProfile = async (): Promise<AuthSession | null> => {
@@ -181,7 +183,8 @@ const extractTags = (item: RawMarketItem): AccountTag[] => {
     if (entry && typeof entry === 'object') {
       const id = asNumber((entry as { tag_id?: unknown }).tag_id);
       const title = asString((entry as { title?: unknown }).title)?.trim();
-      if (id !== null && title) out.push({ id, title });
+      const bc = asString((entry as { bc?: unknown }).bc)?.trim();
+      if (id !== null && title) out.push(bc ? { id, title, bc } : { id, title });
     }
   }
   return out;
@@ -195,14 +198,11 @@ interface SteamBans {
 
 const extractSteamBans = (item: RawMarketItem): SteamBans => {
   const bans = item.steam_bans;
-  const obj =
-    bans && typeof bans === 'object' ? (bans as Record<string, unknown>) : null;
+  const obj = bans && typeof bans === 'object' ? (bans as Record<string, unknown>) : null;
 
   const vacBanned =
     asFlag(item.steam_vac) ||
-    (obj
-      ? asFlag(obj.VACBanned) || (asNumber(obj.NumberOfVACBans) ?? 0) > 0
-      : false);
+    (obj ? asFlag(obj.VACBanned) || (asNumber(obj.NumberOfVACBans) ?? 0) > 0 : false);
 
   const communityBanned =
     asFlag(item.steam_community_ban) || (obj ? asFlag(obj.CommunityBanned) : false);
@@ -217,17 +217,12 @@ const extractSteamBans = (item: RawMarketItem): SteamBans => {
 const RESOLD_TAG_TITLES = new Set(['перепродан', 'resold']);
 
 const isResold = (item: RawMarketItem): boolean =>
-  extractTags(item).some((tag) =>
-    RESOLD_TAG_TITLES.has(tag.title.trim().toLowerCase()),
-  );
+  extractTags(item).some((tag) => RESOLD_TAG_TITLES.has(tag.title.trim().toLowerCase()));
 
 // Top games by hours played. Icons resolve from parentGameId on the FE CDN.
 const extractSteamGames = (item: RawMarketItem, max = 6): SteamGame[] => {
   const full = item.steam_full_games;
-  const list =
-    full && typeof full === 'object'
-      ? (full as { list?: unknown }).list
-      : null;
+  const list = full && typeof full === 'object' ? (full as { list?: unknown }).list : null;
   if (!list || typeof list !== 'object') return [];
   const games: SteamGame[] = [];
   for (const raw of Object.values(list as Record<string, unknown>)) {
@@ -251,10 +246,7 @@ const extractSteamGames = (item: RawMarketItem, max = 6): SteamGame[] => {
 // Steam items expose a rich set of `steam_*` fields plus `tags`/origin. We surface
 // a compact, display-ready subset; missing fields degrade to null/false so the
 // list endpoint (which may omit some) still renders cleanly.
-const extractSteamInfo = (
-  item: RawMarketItem,
-  serviceId: ServiceId | null,
-): SteamInfo | null => {
+const extractSteamInfo = (item: RawMarketItem, serviceId: ServiceId | null): SteamInfo | null => {
   if (serviceId !== 'steam') return null;
   const bans = extractSteamBans(item);
   return {
@@ -310,12 +302,7 @@ const extractPurchasedAt = (item: RawMarketItem): number | null => {
 
 const pickCategoryRaw = (item: RawMarketItem): string => {
   const cat = item.category;
-  return (
-    cat?.name ??
-    cat?.category_name ??
-    item.category_name ??
-    ''
-  ).toString();
+  return (cat?.name ?? cat?.category_name ?? item.category_name ?? '').toString();
 };
 
 const pickCategoryTitle = (item: RawMarketItem): string => {
@@ -355,10 +342,7 @@ const normalizeItem = (item: RawMarketItem): AccountSummary => {
 type PageProgress = { page: number; totalPages: number | null };
 type OnPage = (items: AccountSummary[], progress: PageProgress) => void;
 
-const paginateOrders = async (
-  categoryId?: number,
-  onPage?: OnPage,
-): Promise<AccountSummary[]> => {
+const paginateOrders = async (categoryId?: number, onPage?: OnPage): Promise<AccountSummary[]> => {
   const epoch = tokenEpoch;
   const out: AccountSummary[] = [];
   let page = 1;
@@ -438,7 +422,7 @@ export const fetchEmailCode = async (
   return null;
 };
 
-const VALID_TAG_ID = 1;
+// Tag id 1 marks a "valid" account; only the invalid tag is checked below.
 const INVALID_TAG_ID = 2;
 
 export type CheckAccountResult =
@@ -460,9 +444,7 @@ const fetchAuthoritativeTags = async (itemId: number): Promise<AccountTag[] | nu
   return null;
 };
 
-export const checkAccountValidity = async (
-  itemId: number,
-): Promise<CheckAccountResult> => {
+export const checkAccountValidity = async (itemId: number): Promise<CheckAccountResult> => {
   const token = await loadToken();
   if (!token) return { ok: false, message: 'not_authenticated' };
   for (let attempt = 0; attempt < 100; attempt++) {
@@ -501,10 +483,7 @@ export const fetchSteamMafile = async (itemId: number): Promise<string | null> =
 const asTrimmedString = (v: unknown): string | null =>
   typeof v === 'string' && v.trim() ? v.trim() : null;
 
-const pickLoginRaw = (
-  item: RawMarketItem,
-  serviceId: ServiceId | null,
-): string | null => {
+const pickLoginRaw = (item: RawMarketItem, serviceId: ServiceId | null): string | null => {
   const ld = item.loginData;
   const fromLoginData =
     ld && typeof ld === 'object' ? asTrimmedString((ld as { login?: unknown }).login) : null;
@@ -516,10 +495,7 @@ const pickLoginRaw = (
   return fromLoginData ?? fromAccountLogin;
 };
 
-const pickPasswordRaw = (
-  item: RawMarketItem,
-  serviceId: ServiceId | null,
-): string | null => {
+const pickPasswordRaw = (item: RawMarketItem, serviceId: ServiceId | null): string | null => {
   const ld = item.loginData;
   const fromLoginData =
     ld && typeof ld === 'object' ? asTrimmedString((ld as { password?: unknown }).password) : null;
@@ -553,5 +529,109 @@ export const getAccountDetails = async (itemId: number): Promise<AccountDetails 
   } catch (err) {
     log.warn('[market] getAccountDetails failed', err);
     return null;
+  }
+};
+
+// --- User labels (метки) -----------------------------------------------------
+
+// The user's own label palette, cached in memory and reset on token change
+// (alongside `client`). New labels can only be created on the web; here we just
+// read the palette and attach/detach existing labels to items.
+let labelsCache: UserLabel[] | null = null;
+
+onTokenChange(() => {
+  labelsCache = null;
+});
+
+const normalizeLabels = (raw: RawProfileResponse): UserLabel[] => {
+  const tags = Array.isArray(raw.user.tags) ? raw.user.tags : [];
+  const out: UserLabel[] = [];
+  for (const t of tags) {
+    const id = asNumber(t?.tag_id);
+    const title = asString(t?.title)?.trim();
+    if (id === null || !title) continue;
+    out.push({
+      id,
+      title,
+      bc: asString(t?.bc)?.trim() ?? '',
+      isDefault: t?.isDefault === true,
+      forOwnedAccountsOnly: t?.forOwnedAccountsOnly === true,
+    });
+  }
+  return out;
+};
+
+export const listUserLabels = async (opts?: { refresh?: boolean }): Promise<UserLabel[]> => {
+  if (!opts?.refresh && labelsCache) return labelsCache;
+  const token = await loadToken();
+  if (!token) return [];
+  try {
+    const raw = await getClient().me();
+    if (raw?.user) {
+      labelsCache = normalizeLabels(raw);
+      return labelsCache;
+    }
+  } catch (err) {
+    log.warn('[market] listUserLabels failed', err);
+  }
+  return labelsCache ?? [];
+};
+
+const tagOpError = (resp: { errors?: string[] | string }): string | null => {
+  const e = resp.errors;
+  if (Array.isArray(e) && e.length > 0 && typeof e[0] === 'string') return e[0];
+  if (typeof e === 'string' && e) return e;
+  return null;
+};
+
+export const addItemTag = async (
+  itemId: number,
+  tagId: number,
+): Promise<{ ok: true } | { ok: false; message: string }> => {
+  const token = await loadToken();
+  if (!token) return { ok: false, message: 'not_authenticated' };
+  try {
+    const resp = await getClient().addItemTag(itemId, tagId);
+    const err = tagOpError(resp);
+    if (err) return { ok: false, message: err };
+    return { ok: true };
+  } catch (err) {
+    log.warn(`[market] addItemTag(${itemId}, ${tagId}) failed`, err);
+    return { ok: false, message: err instanceof Error ? err.message : 'tag_failed' };
+  }
+};
+
+export const removeItemTag = async (
+  itemId: number,
+  tagId: number,
+): Promise<{ ok: true } | { ok: false; message: string }> => {
+  const token = await loadToken();
+  if (!token) return { ok: false, message: 'not_authenticated' };
+  try {
+    const resp = await getClient().removeItemTag(itemId, tagId);
+    const err = tagOpError(resp);
+    if (err) return { ok: false, message: err };
+    return { ok: true };
+  } catch (err) {
+    log.warn(`[market] removeItemTag(${itemId}, ${tagId}) failed`, err);
+    return { ok: false, message: err instanceof Error ? err.message : 'tag_failed' };
+  }
+};
+
+// --- Account currency --------------------------------------------------------
+
+export const setCurrency = async (
+  currency: string,
+): Promise<{ ok: true } | { ok: false; message: string }> => {
+  const token = await loadToken();
+  if (!token) return { ok: false, message: 'not_authenticated' };
+  try {
+    const resp = await getClient().updateCurrency(currency);
+    const err = tagOpError(resp);
+    if (err) return { ok: false, message: err };
+    return { ok: true };
+  } catch (err) {
+    log.warn(`[market] setCurrency(${currency}) failed`, err);
+    return { ok: false, message: err instanceof Error ? err.message : 'currency_failed' };
   }
 };

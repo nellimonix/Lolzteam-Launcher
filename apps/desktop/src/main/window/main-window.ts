@@ -1,6 +1,6 @@
-import { BrowserWindow, shell } from 'electron';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { BrowserWindow, shell } from 'electron';
 import iconUrl from '../../renderer/assets/favicon.ico?asset';
 import { MAIN_COLORS } from '../theme';
 
@@ -44,11 +44,22 @@ export const createMainWindow = (): BrowserWindow => {
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url);
+    if (/^https?:/i.test(url)) void shell.openExternal(url);
     return { action: 'deny' };
   });
 
   const devServerUrl = process.env.ELECTRON_RENDERER_URL;
+
+  // The app never navigates its own frame; any top-level navigation attempt
+  // (e.g. a dropped link or injected anchor) must not replace the renderer.
+  mainWindow.webContents.on('will-navigate', (e, url) => {
+    const isInternal = devServerUrl ? url.startsWith(devServerUrl) : url.startsWith('file://');
+    if (!isInternal) {
+      e.preventDefault();
+      if (/^https?:/i.test(url)) void shell.openExternal(url);
+    }
+  });
+
   if (devServerUrl) {
     void mainWindow.loadURL(devServerUrl);
     mainWindow.webContents.openDevTools({ mode: 'detach' });

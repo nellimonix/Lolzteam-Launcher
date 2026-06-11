@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
 import type { AccountDetails } from '@shared-types';
+import { describe, expect, it } from 'vitest';
 import { extractTelegramCreds } from '../extract';
 
 const HEX_256 = 'a'.repeat(512);
@@ -114,9 +114,7 @@ describe('extractTelegramCreds', () => {
   });
 
   it('rejects implausible phone numbers when authKey is also absent', () => {
-    const creds = extractTelegramCreds(
-      baseDetails({ telegram_phone: '12' }),
-    );
+    const creds = extractTelegramCreds(baseDetails({ telegram_phone: '12' }));
     expect(creds).toBeNull();
   });
 

@@ -1,20 +1,21 @@
-import { app, BrowserWindow } from 'electron';
+import { LOLZ_CONFIG } from '@shared-ipc';
+import { BrowserWindow, app } from 'electron';
 import log from 'electron-log/main';
-import { bootstrap } from './bootstrap';
-import { createMainWindow, getMainWindow } from './window/main-window';
-import { registerProtocol } from './auth/protocol-register';
-import { registerAuthFlow } from './auth/protocol-handler';
 import { registerInAppAuth } from './auth/in-app-auth';
-import { registerAuthIpc } from './ipc/auth';
-import { registerAppIpc } from './ipc/app';
+import { registerAuthFlow } from './auth/protocol-handler';
+import { registerProtocol } from './auth/protocol-register';
+import { bootstrap } from './bootstrap';
 import { registerAccountsIpc } from './ipc/accounts';
+import { registerAppIpc } from './ipc/app';
+import { registerAuthIpc } from './ipc/auth';
 import { registerLoginIpc } from './ipc/login';
+import { registerProfileIpc } from './ipc/profile';
+import { registerProxyIpc } from './ipc/proxy';
 import { registerSettingsIpc } from './ipc/settings';
 import { registerSteamIpc } from './ipc/steam';
-import { registerProxyIpc } from './ipc/proxy';
 import { registerProxyAuthHandler } from './services/proxy';
 import { registerUpdaterIpc } from './updater';
-import { LOLZ_CONFIG } from '@shared-ipc';
+import { createMainWindow, getMainWindow } from './window/main-window';
 
 log.initialize();
 log.transports.file.level = 'info';
@@ -63,6 +64,7 @@ app.whenReady().then(async () => {
   registerAppIpc();
   registerAccountsIpc();
   registerLoginIpc();
+  registerProfileIpc();
   registerSettingsIpc();
   registerSteamIpc();
   registerProxyIpc();

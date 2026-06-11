@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 
@@ -31,7 +31,12 @@ export interface SteamPaths {
 }
 
 export const findSteamPaths = async (): Promise<SteamPaths | null> => {
-  if (cached === undefined) cached = await queryRegistry();
+  if (cached === undefined) {
+    const found = await queryRegistry();
+    // Don't memoize a miss — the user may install or first-launch Steam later.
+    if (found === null) return null;
+    cached = found;
+  }
   if (!cached) return null;
   const steamExe = join(cached, 'Steam.exe');
   if (!existsSync(steamExe)) return null;

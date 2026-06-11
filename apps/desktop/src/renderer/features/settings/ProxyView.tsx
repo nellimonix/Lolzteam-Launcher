@@ -1,14 +1,15 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowLeft, Check, Loader2, Pencil, Plus, Trash2, Wifi } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 import type { LauncherSettings, ProxyEntry, ProxyTestResult, ServiceId } from '@shared-types';
 import { PROXY_CAPABLE_SERVICES } from '@shared-types';
+import { ArrowLeft, Check, Loader2, Pencil, Plus, ShieldCheck, Trash2, Wifi } from 'lucide-react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { formatAgo } from '~/lib/time';
 import { Modal } from '~/widgets/Modal/Modal';
 import { Tooltip } from '~/widgets/Tooltip/Tooltip';
-import { formatAgo } from '~/lib/time';
 import s from './ProxyView.module.scss';
 
 const SERVICE_LABELS: Record<string, string> = {
+  steam: 'Steam',
   telegram: 'Telegram',
   tiktok: 'TikTok',
   instagram: 'Instagram',
@@ -25,7 +26,9 @@ const proxyKey = (p: Pick<ProxyEntry, 'host' | 'port' | 'username' | 'password'>
 const parseProxyLine = (line: string): Omit<ProxyEntry, 'id'> | null => {
   const parts = line.trim().split(':');
   if (parts.length < 2) return null;
-  const [host, portRaw, username, password] = parts;
+  // Passwords may contain ':' — everything after the username is the password.
+  const [host, portRaw, username, ...rest] = parts;
+  const password = rest.length > 0 ? rest.join(':') : undefined;
   const port = Number(portRaw);
   if (!host || !Number.isInteger(port) || port <= 0 || port > 65535) return null;
   return {
@@ -44,8 +47,13 @@ export const ProxyView = ({ onBack }: ProxyViewProps) => {
   const [testing, setTesting] = useState<Set<string>>(new Set());
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
   const [editing, setEditing] = useState<ProxyEntry | null>(null);
+  // Bulk "check all" progress and the per-row results it streams in before the
+  // single persist at the end (keeps the list responsive without N disk writes).
+  const [bulkCheck, setBulkCheck] = useState<{ done: number; total: number } | null>(null);
+  const [liveResults, setLiveResults] = useState<Record<string, ProxyTestResult>>({});
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `bulk` is the textarea content — re-measure on change
   useLayoutEffect(() => {
     const ta = textareaRef.current;
     if (!ta) return;
@@ -120,6 +128,72 @@ export const ProxyView = ({ onBack }: ProxyViewProps) => {
     setDeleteAllOpen(false);
   };
 
+  const invalidCount = proxies.filter((p) => p.test?.ok === false).length;
+
+  // Drop only proxies that were explicitly checked and failed; untested and
+  // valid ones are kept.
+  const deleteInvalid = () => {
+    void persist({ proxies: proxiesRef.current.filter((p) => p.test?.ok !== false) });
+  };
+
+  const runTest = async (entry: ProxyEntry): Promise<ProxyTestResult> => {
+    try {
+      const res = await window.launcher.proxy.test({
+        host: entry.host,
+        port: entry.port,
+        username: entry.username,
+        password: entry.password,
+      });
+      return {
+        ok: res.ok,
+        checkedAt: Date.now(),
+        ...(res.ok ? { ms: res.ms, ip: res.ip } : { message: res.message }),
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        checkedAt: Date.now(),
+        message: err instanceof Error ? err.message : String(err),
+      };
+    }
+  };
+
+  // Check every proxy with bounded concurrency, streaming each result into the
+  // row as it lands and reporting done/total in the header, then persist once.
+  const checkAll = async () => {
+    const list = proxiesRef.current;
+    if (list.length === 0 || bulkCheck) return;
+    setBulkCheck({ done: 0, total: list.length });
+    setLiveResults({});
+    setTesting(new Set(list.map((p) => p.id)));
+
+    const results: Record<string, ProxyTestResult> = {};
+    let idx = 0;
+    const worker = async () => {
+      while (idx < list.length) {
+        const entry = list[idx++];
+        if (!entry) break;
+        const test = await runTest(entry);
+        results[entry.id] = test;
+        setLiveResults((prev) => ({ ...prev, [entry.id]: test }));
+        setTesting((prev) => {
+          const next = new Set(prev);
+          next.delete(entry.id);
+          return next;
+        });
+        setBulkCheck((prev) => (prev ? { done: prev.done + 1, total: prev.total } : prev));
+      }
+    };
+    const CONCURRENCY = 6;
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, list.length) }, worker));
+
+    const next = proxiesRef.current.map((p) => (results[p.id] ? { ...p, test: results[p.id] } : p));
+    proxiesRef.current = next;
+    await persist({ proxies: next });
+    setBulkCheck(null);
+    setLiveResults({});
+  };
+
   const saveEdit = (next: ProxyEntry) => {
     const { test: _drop, ...rest } = next;
     void persist({
@@ -131,23 +205,7 @@ export const ProxyView = ({ onBack }: ProxyViewProps) => {
   const testProxy = async (entry: ProxyEntry) => {
     setTesting((prev) => new Set(prev).add(entry.id));
     try {
-      const res = await window.launcher.proxy.test({
-        host: entry.host,
-        port: entry.port,
-        username: entry.username,
-        password: entry.password,
-      });
-      await patchProxyTest(entry.id, {
-        ok: res.ok,
-        checkedAt: Date.now(),
-        ...(res.ok ? { ms: res.ms, ip: res.ip } : { message: res.message }),
-      });
-    } catch (err) {
-      await patchProxyTest(entry.id, {
-        ok: false,
-        checkedAt: Date.now(),
-        message: err instanceof Error ? err.message : String(err),
-      });
+      await patchProxyTest(entry.id, await runTest(entry));
     } finally {
       setTesting((prev) => {
         const next = new Set(prev);
@@ -161,7 +219,12 @@ export const ProxyView = ({ onBack }: ProxyViewProps) => {
     <div className={s.container}>
       <div className={s.block}>
         <header className={s.header}>
-          <button type="button" className={s.back} onClick={onBack} aria-label={t('settings.proxy.back')}>
+          <button
+            type="button"
+            className={s.back}
+            onClick={onBack}
+            aria-label={t('settings.proxy.back')}
+          >
             <ArrowLeft size={18} />
           </button>
           <span className={s.headerTitle}>{t('settings.proxy.menuLabel')}</span>
@@ -264,16 +327,44 @@ export const ProxyView = ({ onBack }: ProxyViewProps) => {
           {proxies.length > 0 && (
             <div className={s.listHeader}>
               <span className={s.listCount}>
-                {t('settings.proxy.listCount', { count: proxies.length })}
+                {bulkCheck
+                  ? t('settings.proxy.checkAllProgress', {
+                      done: bulkCheck.done,
+                      total: bulkCheck.total,
+                    })
+                  : t('settings.proxy.listCount', { count: proxies.length })}
               </span>
-              <button
-                type="button"
-                className={s.deleteAllBtn}
-                onClick={() => setDeleteAllOpen(true)}
-              >
-                <Trash2 size={14} />
-                <span>{t('settings.proxy.deleteAll')}</span>
-              </button>
+              <div className={s.headerActions}>
+                <button
+                  type="button"
+                  className={s.checkAllBtn}
+                  onClick={() => void checkAll()}
+                  disabled={bulkCheck !== null}
+                >
+                  {bulkCheck ? <Loader2 size={14} className={s.spin} /> : <ShieldCheck size={14} />}
+                  <span>{t('settings.proxy.checkAll')}</span>
+                </button>
+                {invalidCount > 0 && (
+                  <button
+                    type="button"
+                    className={s.deleteInvalidBtn}
+                    onClick={deleteInvalid}
+                    disabled={bulkCheck !== null}
+                  >
+                    <Trash2 size={14} />
+                    <span>{t('settings.proxy.deleteInvalid', { count: invalidCount })}</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={s.deleteAllBtn}
+                  onClick={() => setDeleteAllOpen(true)}
+                  disabled={bulkCheck !== null}
+                >
+                  <Trash2 size={14} />
+                  <span>{t('settings.proxy.deleteAll')}</span>
+                </button>
+              </div>
             </div>
           )}
 
@@ -283,7 +374,7 @@ export const ProxyView = ({ onBack }: ProxyViewProps) => {
             <ul className={s.list}>
               {proxies.map((entry) => {
                 const isTesting = testing.has(entry.id);
-                const res = entry.test;
+                const res = liveResults[entry.id] ?? entry.test;
                 return (
                   <li key={entry.id} className={s.row}>
                     <div className={s.rowInfo}>
@@ -296,12 +387,15 @@ export const ProxyView = ({ onBack }: ProxyViewProps) => {
                       ) : res ? (
                         <span className={s.rowStatus}>
                           <span className={res.ok ? s.resultOk : s.resultFail}>
-                            {res.ok ? t('settings.proxy.statusValid') : t('settings.proxy.statusInvalid')}
-                            {' '}
+                            {res.ok
+                              ? t('settings.proxy.statusValid')
+                              : t('settings.proxy.statusInvalid')}{' '}
                             ({formatAgo(res.checkedAt, i18n.language)})
                           </span>
                           {res.ok && res.ms !== undefined && (
-                            <span className={s.rowPing}>{t('settings.proxy.ping', { ms: res.ms })}</span>
+                            <span className={s.rowPing}>
+                              {t('settings.proxy.ping', { ms: res.ms })}
+                            </span>
                           )}
                         </span>
                       ) : null}
@@ -373,16 +467,8 @@ export const ProxyView = ({ onBack }: ProxyViewProps) => {
       )}
 
       {editing && (
-        <Modal
-          title={t('settings.proxy.editTitle')}
-          closable
-          onClose={() => setEditing(null)}
-        >
-          <ProxyEditForm
-            entry={editing}
-            onCancel={() => setEditing(null)}
-            onSave={saveEdit}
-          />
+        <Modal title={t('settings.proxy.editTitle')} closable onClose={() => setEditing(null)}>
+          <ProxyEditForm entry={editing} onCancel={() => setEditing(null)} onSave={saveEdit} />
         </Modal>
       )}
     </div>

@@ -59,6 +59,7 @@
 .body {
   padding: $space-5;
   overflow-y: auto;
+  @include scrollbar;
 }
 
 @keyframes fade-in {

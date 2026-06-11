@@ -22,7 +22,7 @@ const crc32 = (buf: Buffer): number => {
 
 export const computeConnectCacheHdr = (login: string): string => {
   const value = crc32(Buffer.from(login, 'utf8'));
-  return value.toString(16) + '1';
+  return `${value.toString(16)}1`;
 };
 
 const PS_SCRIPT = `
@@ -56,6 +56,14 @@ export const dpapiProtect = (data: Buffer, entropy: Buffer): Promise<string> =>
     let stdout = '';
     let stderr = '';
 
+    // PowerShell can hang indefinitely (AV scan, cold .NET JIT, wedged console
+    // host) — without a deadline the whole login would be stuck forever.
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill();
+    }, 30_000);
+
     child.stdout.on('data', (chunk: Buffer) => {
       stdout += chunk.toString('utf8');
     });
@@ -63,8 +71,16 @@ export const dpapiProtect = (data: Buffer, entropy: Buffer): Promise<string> =>
       stderr += chunk.toString('utf8');
     });
 
-    child.on('error', reject);
+    child.on('error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
     child.on('close', (code) => {
+      clearTimeout(timer);
+      if (timedOut) {
+        reject(new Error('DPAPI helper timed out after 30s'));
+        return;
+      }
       if (code !== 0) {
         reject(new Error(`DPAPI helper exited with ${code}: ${stderr.trim()}`));
         return;
@@ -77,7 +93,7 @@ export const dpapiProtect = (data: Buffer, entropy: Buffer): Promise<string> =>
       resolve(hex);
     });
 
-    child.stdin.write(data.toString('base64') + '\n');
-    child.stdin.write(entropy.toString('base64') + '\n');
+    child.stdin.write(`${data.toString('base64')}\n`);
+    child.stdin.write(`${entropy.toString('base64')}\n`);
     child.stdin.end();
   });

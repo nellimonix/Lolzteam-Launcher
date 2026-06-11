@@ -2,10 +2,7 @@ import { createHmac } from 'node:crypto';
 
 const STEAM_ALPHABET = '23456789BCDFGHJKMNPQRTVWXY';
 
-export const generateSteamGuardCode = (
-  sharedSecretBase64: string,
-  now = Date.now(),
-): string => {
+export const generateSteamGuardCode = (sharedSecretBase64: string, now = Date.now()): string => {
   const key = Buffer.from(sharedSecretBase64, 'base64');
   const time = BigInt(Math.floor(now / 1000 / 30));
 

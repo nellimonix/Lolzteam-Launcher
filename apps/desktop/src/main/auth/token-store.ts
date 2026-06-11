@@ -1,8 +1,8 @@
-import { app, safeStorage } from 'electron';
+import { EventEmitter } from 'node:events';
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
+import { app, safeStorage } from 'electron';
 import log from 'electron-log/main';
-import { EventEmitter } from 'node:events';
 
 const FILE_NAME = 'auth.bin';
 
@@ -34,9 +34,14 @@ class TokenStore extends EventEmitter {
   }
 
   async save(token: string): Promise<void> {
-    const payload = safeStorage.isEncryptionAvailable()
-      ? safeStorage.encryptString(token)
-      : Buffer.from(token, 'utf8');
+    if (!safeStorage.isEncryptionAvailable()) {
+      log.warn('[auth] safeStorage unavailable, token kept in-memory only');
+      await fs.unlink(tokenFile()).catch(() => {});
+      this.cached = token;
+      this.emit('change', token);
+      return;
+    }
+    const payload = safeStorage.encryptString(token);
     await fs.writeFile(tokenFile(), payload, { mode: 0o600 });
     this.cached = token;
     this.emit('change', token);

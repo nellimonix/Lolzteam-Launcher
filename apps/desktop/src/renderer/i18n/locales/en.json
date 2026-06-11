@@ -79,8 +79,13 @@
     "loading": "Loading your accounts…",
     "error": "Couldn’t load accounts from lzt.market.",
     "empty": "You don’t have any purchased accounts yet.",
+    "emptyListings": "You don’t have any listed accounts yet.",
     "emptyUnsupported": "Your inventory has no accounts for supported services (Steam, Telegram).",
     "openMarket": "Open lzt.market",
+    "source": {
+      "purchased": "Purchased",
+      "listings": "Listed"
+    },
     "refresh": "Refresh",
     "searchPlaceholder": "Search by name, game, country…",
     "searchClear": "Clear search",

@@ -49,10 +49,13 @@ export class MarketClient {
     return this.http.get('user/orders', { searchParams: search }).json<RawOrdersResponse>();
   }
 
-  /** `List.User` — accounts the authenticated user owns (listings + purchases). */
-  async listUser(params: { page?: number } = {}): Promise<RawOrdersResponse> {
+  /** `List.User` — items the authenticated user has listed on the market. */
+  async listUser(
+    params: { page?: number; categoryId?: number } = {},
+  ): Promise<RawOrdersResponse> {
     const search = new URLSearchParams();
     if (params.page) search.set('page', String(params.page));
+    if (params.categoryId) search.set('category_id', String(params.categoryId));
     return this.http.get('user/items', { searchParams: search }).json<RawOrdersResponse>();
   }
 

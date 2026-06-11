@@ -244,6 +244,87 @@
   gap: $space-2;
 }
 
+.sourceSelect {
+  position: relative;
+}
+
+.sourceBtn {
+  @include button-reset;
+  @include clickable;
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  height: 38px;
+  padding: 0 $space-3;
+  border-radius: 12px;
+  background: $color-surface-raised;
+  border: 1px solid $color-border;
+  color: $color-text-soft;
+  font-size: $fs-sm;
+  white-space: nowrap;
+
+  &:hover {
+    color: $color-text;
+    border-color: $color-border-strong;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+}
+
+.sourceChevronOpen {
+  transform: rotate(180deg);
+}
+
+.sourceMenu {
+  position: absolute;
+  top: calc(100% + #{$space-2});
+  right: 0;
+  z-index: $z-overlay;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 100%;
+  padding: $space-2;
+  border-radius: 12px;
+  background: $color-surface-overlay;
+  border: 1px solid $color-border;
+  box-shadow: $shadow-lg;
+}
+
+.sourceOption {
+  @include button-reset;
+  @include clickable;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
+  padding: $space-2 $space-3;
+  border-radius: 8px;
+  color: $color-text-soft;
+  font-size: $fs-sm;
+  white-space: nowrap;
+
+  &:hover {
+    background: $color-surface-raised;
+    color: $color-text;
+  }
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+}
+
+.sourceOptionActive {
+  color: $color-text;
+}
+
 .filterBtn {
   @include button-reset;
   @include clickable;

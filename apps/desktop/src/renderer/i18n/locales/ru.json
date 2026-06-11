@@ -79,8 +79,13 @@
     "loading": "Загружаем ваши аккаунты…",
     "error": "Не удалось загрузить аккаунты с lzt.market.",
     "empty": "У вас пока нет купленных аккаунтов.",
+    "emptyListings": "У вас пока нет выставленных аккаунтов.",
     "emptyUnsupported": "В вашем инвентаре нет аккаунтов поддерживаемых сервисов (Steam, Telegram).",
     "openMarket": "Открыть lzt.market",
+    "source": {
+      "purchased": "Купленные",
+      "listings": "Выставленные"
+    },
     "refresh": "Обновить",
     "searchPlaceholder": "Поиск по названию, игре, стране…",
     "searchClear": "Очистить поиск",

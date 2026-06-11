@@ -10,6 +10,7 @@ import {
 } from '@shared-ipc';
 import type {
   AccountDetails,
+  AccountSource,
   AccountSummary,
   AuthStatus,
   AuthTokenPayload,
@@ -46,12 +47,14 @@ const api = {
       on<AuthStatus>(IPC_CHANNELS.AUTH_STATUS_CHANGED, h),
   },
   accounts: {
-    list: () => invoke<AccountSummary[]>(IPC_CHANNELS.ACCOUNTS_LIST),
-    listStream: (only?: ServiceId) =>
-      invoke<void>(IPC_CHANNELS.ACCOUNTS_LIST_STREAM, only ? { only } : undefined),
+    list: (source?: AccountSource) =>
+      invoke<AccountSummary[]>(IPC_CHANNELS.ACCOUNTS_LIST, source ? { source } : undefined),
+    listStream: (only?: ServiceId, source?: AccountSource) =>
+      invoke<void>(IPC_CHANNELS.ACCOUNTS_LIST_STREAM, { only, source }),
     onCategory: (h: (p: AccountsCategoryEvent) => void) =>
       on<AccountsCategoryEvent>(IPC_CHANNELS.ACCOUNTS_CATEGORY, h),
-    refresh: () => invoke<AccountSummary[]>(IPC_CHANNELS.ACCOUNTS_REFRESH),
+    refresh: (source?: AccountSource) =>
+      invoke<AccountSummary[]>(IPC_CHANNELS.ACCOUNTS_REFRESH, source ? { source } : undefined),
     clearCache: () => invoke<void>(IPC_CHANNELS.ACCOUNTS_CLEAR_CACHE),
     get: (itemId: number) => invoke<AccountDetails | null>(IPC_CHANNELS.ACCOUNTS_GET, { itemId }),
     login: (

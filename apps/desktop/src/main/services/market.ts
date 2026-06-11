@@ -3,6 +3,7 @@ import type { RawMarketItem, RawProfileResponse } from '@market-sdk';
 import { categoryNameToServiceId } from '@shared-types';
 import type {
   AccountDetails,
+  AccountSource,
   AccountSummary,
   AccountTag,
   AuthSession,
@@ -341,8 +342,23 @@ const normalizeItem = (item: RawMarketItem): AccountSummary => {
 
 type PageProgress = { page: number; totalPages: number | null };
 type OnPage = (items: AccountSummary[], progress: PageProgress) => void;
+type ShouldContinue = () => boolean;
 
-const paginateOrders = async (categoryId?: number, onPage?: OnPage): Promise<AccountSummary[]> => {
+const fetchOrdersPage = (
+  source: AccountSource,
+  page: number,
+  categoryId?: number,
+) =>
+  source === 'listings'
+    ? getClient().listUser({ page, categoryId })
+    : getClient().listOrders({ page, categoryId });
+
+const paginateOrders = async (
+  source: AccountSource,
+  categoryId?: number,
+  onPage?: OnPage,
+  shouldContinue?: ShouldContinue,
+): Promise<AccountSummary[]> => {
   const epoch = tokenEpoch;
   const out: AccountSummary[] = [];
   let page = 1;
@@ -351,7 +367,9 @@ const paginateOrders = async (categoryId?: number, onPage?: OnPage): Promise<Acc
     // Token changed mid-stream (logout/re-login): stop before the next request
     // so we don't hit the API with a stale token.
     if (tokenEpoch !== epoch) break;
-    const resp = await getClient().listOrders({ page, categoryId });
+    // A newer stream superseded this one (source switch / refresh): stop paging.
+    if (shouldContinue && !shouldContinue()) break;
+    const resp = await fetchOrdersPage(source, page, categoryId);
     const items = resp.items ?? [];
     const normalized = items.filter((it) => !isResold(it)).map(normalizeItem);
     out.push(...normalized);
@@ -369,27 +387,31 @@ const paginateOrders = async (categoryId?: number, onPage?: OnPage): Promise<Acc
   return out;
 };
 
-export const listPurchasedAccounts = async (): Promise<AccountSummary[]> => {
+export const listAllAccounts = async (
+  source: AccountSource,
+): Promise<AccountSummary[]> => {
   const token = await loadToken();
   if (!token) return [];
   try {
-    return await paginateOrders();
+    return await paginateOrders(source);
   } catch (err) {
-    log.warn('[market] listPurchasedAccounts failed', err);
+    log.warn(`[market] listAllAccounts(${source}) failed`, err);
     return [];
   }
 };
 
 export const listAccountsByCategory = async (
+  source: AccountSource,
   categoryId: number,
   onPage?: OnPage,
+  shouldContinue?: ShouldContinue,
 ): Promise<AccountSummary[]> => {
   const token = await loadToken();
   if (!token) return [];
   try {
-    return await paginateOrders(categoryId, onPage);
+    return await paginateOrders(source, categoryId, onPage, shouldContinue);
   } catch (err) {
-    log.warn(`[market] listAccountsByCategory(${categoryId}) failed`, err);
+    log.warn(`[market] listAccountsByCategory(${source}, ${categoryId}) failed`, err);
     return [];
   }
 };

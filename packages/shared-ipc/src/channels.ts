@@ -1,6 +1,7 @@
 import type { LoginProgressEvent } from '@lolzteam/adapter-contract';
 import type {
   AccountDetails,
+  AccountSource,
   AccountSummary,
   AccountTag,
   AuthStatus,
@@ -19,6 +20,7 @@ export type LoginProgress = LoginProgressEvent & { itemId: number };
 export type TagOpResult = { ok: true } | { ok: false; message: string };
 
 export interface AccountsCategoryEvent {
+  source: AccountSource;
   serviceId: ServiceId;
   items: AccountSummary[];
   categoryDone: boolean;
@@ -121,9 +123,9 @@ export interface IpcRequestMap {
   [IPC_CHANNELS.AUTH_OPEN_BROWSER]: undefined;
   [IPC_CHANNELS.AUTH_LOGOUT]: undefined;
   [IPC_CHANNELS.AUTH_GET_STATUS]: undefined;
-  [IPC_CHANNELS.ACCOUNTS_LIST]: undefined;
-  [IPC_CHANNELS.ACCOUNTS_LIST_STREAM]: { only?: ServiceId } | undefined;
-  [IPC_CHANNELS.ACCOUNTS_REFRESH]: undefined;
+  [IPC_CHANNELS.ACCOUNTS_LIST]: { source?: AccountSource } | undefined;
+  [IPC_CHANNELS.ACCOUNTS_LIST_STREAM]: { only?: ServiceId; source?: AccountSource } | undefined;
+  [IPC_CHANNELS.ACCOUNTS_REFRESH]: { source?: AccountSource } | undefined;
   [IPC_CHANNELS.ACCOUNTS_CLEAR_CACHE]: undefined;
   [IPC_CHANNELS.ACCOUNTS_GET]: { itemId: number };
   [IPC_CHANNELS.ACCOUNT_LOGIN]: {

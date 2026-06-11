@@ -1,13 +1,25 @@
-import type { AccountSummary, LauncherSettings, ServiceId } from '@shared-types';
+import { ACCOUNT_SOURCES } from '@shared-types';
+import type { AccountSource, AccountSummary, LauncherSettings, ServiceId } from '@shared-types';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, ArrowDownUp, Check, ListFilter, RefreshCw, Search, X } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowDownUp,
+  Check,
+  ChevronDown,
+  ListFilter,
+  RefreshCw,
+  Search,
+  X,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { labelColors } from '~/lib/labelColor';
 import {
+  accountsQueryKey,
   isStreamService,
   mergeWithStream,
   startAccountsStream,
+  switchAccountsSource,
   useAccountsStream,
 } from '~/stores/accountsStream';
 import { useProfileLabels } from '~/stores/profileLabels';
@@ -143,9 +155,12 @@ export const InventoryView = () => {
   const [labelFilter, setLabelFilter] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
+  const [sourceOpen, setSourceOpen] = useState(false);
   const [limit, setLimit] = useState(CHUNK);
+  const source = useAccountsStream((st) => st.source);
   const streaming = useAccountsStream((st) => st.streaming);
   const loaded = useAccountsStream((st) => st.loaded);
+  const sourceMenuRef = useRef<HTMLDivElement>(null);
   const settings = useSettings((st) => st.settings);
   const setSettings = useSettings((st) => st.set);
   const hideInvalid = settings?.inventoryHideInvalid ?? false;
@@ -180,10 +195,17 @@ export const InventoryView = () => {
   };
 
   const query = useQuery({
-    queryKey: ['accounts'],
-    queryFn: async () => mergeWithStream(await window.launcher.accounts.list()),
+    queryKey: accountsQueryKey(source),
+    queryFn: async () => mergeWithStream(await window.launcher.accounts.list(source)),
     staleTime: 60_000,
   });
+
+  const selectSource = (next: AccountSource) => {
+    setSourceOpen(false);
+    if (next === source || streaming) return;
+    setFilter('all');
+    switchAccountsSource(qc, next);
+  };
 
   const rawItems = query.data ?? [];
   const items = useMemo(() => rawItems.filter((it) => isSupportedService(it.category)), [rawItems]);
@@ -208,7 +230,16 @@ export const InventoryView = () => {
   useEffect(() => {
     setLimit(CHUNK);
     document.querySelector('[data-scroll-root]')?.scrollTo({ top: 0 });
-  }, [filter, hideInvalid, labelFilter, trimmedSearch, sortKey, sortDir]);
+  }, [filter, hideInvalid, labelFilter, trimmedSearch, sortKey, sortDir, source]);
+
+  useEffect(() => {
+    if (!sourceOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!sourceMenuRef.current?.contains(e.target as Node)) setSourceOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [sourceOpen]);
 
   const shown = visible.slice(0, limit);
   const hasMore = limit < visible.length;
@@ -259,14 +290,17 @@ export const InventoryView = () => {
     );
   }
 
+  const marketUrl =
+    source === 'listings' ? 'https://lzt.market/user/items' : 'https://lzt.market/user/orders';
+
   if (rawItems.length === 0 && fullySettled) {
     return (
       <div className={s.state}>
-        <p>{t('inventory.empty')}</p>
+        <p>{t(source === 'listings' ? 'inventory.emptyListings' : 'inventory.empty')}</p>
         <button
           type="button"
           className={s.retry}
-          onClick={() => window.launcher.app.openExternal('https://lzt.market/orders')}
+          onClick={() => window.launcher.app.openExternal(marketUrl)}
         >
           {t('inventory.openMarket')}
         </button>
@@ -281,7 +315,7 @@ export const InventoryView = () => {
         <button
           type="button"
           className={s.retry}
-          onClick={() => window.launcher.app.openExternal('https://lzt.market/orders')}
+          onClick={() => window.launcher.app.openExternal(marketUrl)}
         >
           {t('inventory.openMarket')}
         </button>
@@ -334,6 +368,36 @@ export const InventoryView = () => {
         </div>
 
         <div className={s.controlsActions}>
+          <div className={s.sourceSelect} ref={sourceMenuRef}>
+            <button
+              type="button"
+              className={s.sourceBtn}
+              onClick={() => setSourceOpen((v) => !v)}
+              disabled={streaming}
+              aria-haspopup="listbox"
+              aria-expanded={sourceOpen}
+            >
+              <span>{t(`inventory.source.${source}`)}</span>
+              <ChevronDown size={15} className={sourceOpen ? s.sourceChevronOpen : ''} />
+            </button>
+            {sourceOpen && (
+              <div className={s.sourceMenu} role="listbox">
+                {ACCOUNT_SOURCES.map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    role="option"
+                    aria-selected={opt === source}
+                    className={`${s.sourceOption} ${opt === source ? s.sourceOptionActive : ''}`}
+                    onClick={() => selectSource(opt)}
+                  >
+                    <span>{t(`inventory.source.${opt}`)}</span>
+                    {opt === source && <Check size={14} />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button type="button" className={s.refresh} onClick={refresh} disabled={streaming}>
             <RefreshCw size={14} className={streaming ? s.spin : ''} />
             <span>{t('inventory.refresh')}</span>

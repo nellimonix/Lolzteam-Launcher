@@ -1,5 +1,6 @@
-import type { AccountSummary, ServiceId } from '@shared-types';
-import { useQueryClient } from '@tanstack/react-query';
+import { DEFAULT_ACCOUNT_SOURCE } from '@shared-types';
+import type { AccountSource, AccountSummary, ServiceId } from '@shared-types';
+import { type QueryClient, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { create } from 'zustand';
 import { useAccountsLoading } from './accountsLoading';
@@ -13,6 +14,8 @@ export const STREAM_SERVICES = [
 ] as const satisfies readonly ServiceId[];
 export type StreamService = (typeof STREAM_SERVICES)[number];
 
+export const accountsQueryKey = (source: AccountSource) => ['accounts', source] as const;
+
 export const isStreamService = (id: ServiceId | null): id is StreamService =>
   id !== null && (STREAM_SERVICES as readonly string[]).includes(id);
 
@@ -24,10 +27,12 @@ export interface StreamProgress {
 }
 
 interface AccountsStreamState {
+  source: AccountSource;
   streaming: boolean;
   loaded: ReadonlySet<StreamService>;
   streamed: Map<StreamService, AccountSummary[]>;
   progress: StreamProgress | null;
+  setSource: (source: AccountSource) => void;
   setStreaming: (streaming: boolean) => void;
   setLoaded: (updater: (prev: ReadonlySet<StreamService>) => ReadonlySet<StreamService>) => void;
   setProgress: (progress: StreamProgress | null) => void;
@@ -36,10 +41,12 @@ interface AccountsStreamState {
 }
 
 export const useAccountsStream = create<AccountsStreamState>((set) => ({
+  source: DEFAULT_ACCOUNT_SOURCE,
   streaming: false,
   loaded: new Set(),
   streamed: new Map(),
   progress: null,
+  setSource: (source) => set({ source }),
   setStreaming: (streaming) => set({ streaming }),
   setLoaded: (updater) => set((s) => ({ loaded: updater(s.loaded) })),
   setProgress: (progress) => set({ progress }),
@@ -69,19 +76,47 @@ export const startAccountsStream = (only?: StreamService) => {
     st.setLoaded(() => new Set());
     st.resetAccumulator();
   }
-  void window.launcher.accounts.listStream(only).catch(() => st.setStreaming(false));
+  void window.launcher.accounts
+    .listStream(only, st.source)
+    .catch(() => st.setStreaming(false));
+};
+
+// Loads a source's cache into the query and kicks off a fresh stream when it's
+// empty. Used both on first mount and when the user switches purchased/listings.
+const hydrateSource = async (qc: QueryClient, source: AccountSource) => {
+  const cached = await window.launcher.accounts.list(source);
+  if (useAccountsStream.getState().source !== source) return;
+  qc.setQueryData<AccountSummary[]>(accountsQueryKey(source), mergeWithStream(cached));
+  if (cached.length > 0) {
+    useAccountsStream.getState().setLoaded(() => new Set(STREAM_SERVICES));
+  } else {
+    startAccountsStream();
+  }
+};
+
+export const switchAccountsSource = (qc: QueryClient, next: AccountSource) => {
+  const st = useAccountsStream.getState();
+  if (st.source === next || st.streaming) return;
+  st.reset();
+  st.setSource(next);
+  void hydrateSource(qc, next);
 };
 
 export const useAccountsStreamController = () => {
   const qc = useQueryClient();
 
   useEffect(() => {
-    const rebuild = () =>
-      qc.setQueryData<AccountSummary[]>(['accounts'], (prev) => mergeWithStream(prev ?? []));
+    const rebuild = () => {
+      const source = useAccountsStream.getState().source;
+      qc.setQueryData<AccountSummary[]>(accountsQueryKey(source), (prev) =>
+        mergeWithStream(prev ?? []),
+      );
+    };
 
     const off = window.launcher.accounts.onCategory(
-      ({ serviceId, items, categoryDone, done, page, totalPages }) => {
+      ({ source, serviceId, items, categoryDone, done, page, totalPages }) => {
         const st = useAccountsStream.getState();
+        if (source !== st.source) return;
         if (isStreamService(serviceId) && items.length > 0) {
           const acc = st.streamed.get(serviceId) ?? [];
           acc.push(...items);
@@ -111,10 +146,12 @@ export const useAccountsStreamController = () => {
     );
 
     let cancelled = false;
-    void window.launcher.accounts.list().then((cached) => {
-      if (cancelled) return;
+    const source = useAccountsStream.getState().source;
+    void window.launcher.accounts.list(source).then((cached) => {
+      const st = useAccountsStream.getState();
+      if (cancelled || st.source !== source) return;
       if (cached.length > 0) {
-        useAccountsStream.getState().setLoaded(() => new Set(STREAM_SERVICES));
+        st.setLoaded(() => new Set(STREAM_SERVICES));
       } else {
         startAccountsStream();
       }

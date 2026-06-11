@@ -720,10 +720,6 @@ const AccountCardImpl = ({ item }: AccountCardProps) => {
                   <Tags size={16} />
                   <span>{t('inventory.card.labelsMenu')}</span>
                 </button>
-                <button type="button" className={s.menuItem} role="menuitem" onClick={openOnMarket}>
-                  <ExternalLink size={16} />
-                  <span>{t('inventory.card.openOnMarket')}</span>
-                </button>
                 {service === 'steam' && (
                   <button
                     type="button"
@@ -735,6 +731,10 @@ const AccountCardImpl = ({ item }: AccountCardProps) => {
                     <span>{t('inventory.card.steamInventoryValue')}</span>
                   </button>
                 )}
+                <button type="button" className={s.menuItem} role="menuitem" onClick={openOnMarket}>
+                  <ExternalLink size={16} />
+                  <span>{t('inventory.card.openOnMarket')}</span>
+                </button>
               </div>
             )}
           </div>
